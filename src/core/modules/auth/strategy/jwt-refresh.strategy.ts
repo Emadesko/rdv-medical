@@ -3,18 +3,20 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import { UserRole } from '../../user/enums/user.role';
-import { UserService } from '../../user/user.service';
 import { PayloadInterface } from '../dto/responses/payload.interface';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private userService: UserService) {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
+  constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (req: Request) =>
-          req?.cookies?.[process.env.ACCESS_TOKEN_COOKIE_NAME!] ?? null,
+          req?.cookies?.[process.env.REFRESH_TOKEN_COOKIE_NAME!] ?? null,
       ]),
-      secretOrKey: process.env.JWT_SECRET!,
+      secretOrKey: process.env.JWT_REFRESH_SECRET!,
       ignoreExpiration: false,
     });
   }

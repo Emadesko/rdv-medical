@@ -17,6 +17,8 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { User } from '../user/entities/user.entity';
 import { UserMapper } from '../user/mapper/user.mapper';
 import { HumanService } from '../human/human.service';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { PayloadInterface } from './dto/responses/payload.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -30,19 +32,54 @@ export class AuthController {
     @Body() request: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const token = await this.authService.login(request.email, request.password);
+    const { accessToken, refreshToken } = await this.authService.login(
+      request.email,
+      request.password,
+    );
 
-    res.cookie(process.env.TOKEN_NAME!, token, {
+    res.cookie(process.env.ACCESS_TOKEN_COOKIE_NAME!, accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: Number(process.env.MAX_AGE!),
+      maxAge: Number(process.env.ACCESS_TOKEN_MAX_AGE),
+    });
+
+    res.cookie(process.env.REFRESH_TOKEN_COOKIE_NAME!, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: Number(process.env.REFRESH_TOKEN_MAX_AGE),
     });
     return new RestResponse(
       HttpStatus.OK,
-      new AuthResponse(token),
+      new AuthResponse(null),
       'AuthResponse',
     );
+  }
+
+  @UseGuards(JwtRefreshGuard)
+  @Post('refresh')
+  refresh(
+    @CurrentUser() user: PayloadInterface,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken } = this.authService.refresh(user);
+
+    res.cookie(process.env.ACCESS_TOKEN_COOKIE_NAME!, accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: Number(process.env.ACCESS_TOKEN_MAX_AGE),
+    });
+
+    res.cookie(process.env.REFRESH_TOKEN_COOKIE_NAME!, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: Number(process.env.REFRESH_TOKEN_MAX_AGE),
+    });
+
+    return new RestResponse(HttpStatus.OK, null, 'Token renouvelé');
   }
 
   @UseGuards(JwtGuard)
@@ -57,7 +94,8 @@ export class AuthController {
 
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(process.env.TOKEN_NAME!);
-    return new RestResponse(HttpStatus.OK, 'Déconnexion', 'AuthResponse');
+    res.clearCookie(process.env.ACCESS_TOKEN_COOKIE_NAME!);
+    res.clearCookie(process.env.REFRESH_TOKEN_COOKIE_NAME!);
+    return new RestResponse(HttpStatus.OK, null, 'Déconnecté');
   }
 }

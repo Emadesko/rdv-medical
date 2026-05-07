@@ -1,7 +1,7 @@
 export class AuthResponse {
-  private token: string;
+  private token: string | null;
 
-  constructor(token: string) {
+  constructor(token: string | null) {
     this.token = token;
   }
 }

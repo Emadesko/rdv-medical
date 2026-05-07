@@ -28,7 +28,7 @@ async function bootstrap() {
           const field = error.property;
           formatted[field] = Object.values(error.constraints || {})[0];
         });
-        console.log('formatted:', formatted); // ← ici
+        console.log('formatted:', formatted);
         throw new BadRequestException(formatted);
       },
     }),
