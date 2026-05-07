@@ -1,4 +1,4 @@
-import { Human } from '../../../core/modules/user/entities/human';
+import { Human } from '../../../core/modules/human/entities/human';
 import { Entity, OneToMany } from 'typeorm';
 import { Rdv } from '../../rdv/entities/rdv.entity';
 

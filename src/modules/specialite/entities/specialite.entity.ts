@@ -1,5 +1,5 @@
 import { AbstractEntity } from '../../../core/common/entities/abstract.entity';
-import { Column, Entity, JoinColumn, JoinTable, ManyToMany } from 'typeorm';
+import { Column, Entity, JoinTable, ManyToMany } from 'typeorm';
 import { Docteur } from '../../docteur/entities/docteur.entity';
 import { ServiceMedical } from '../../service-medical/entities/service-medical.entity';
 
@@ -15,7 +15,7 @@ export class Specialite extends AbstractEntity {
   docteurs: Docteur[];
 
   @ManyToMany(() => ServiceMedical, (service) => service.specialites, {
-    eager: true,
+    cascade: true,
   })
   @JoinTable()
   serviceMedicals: ServiceMedical[];

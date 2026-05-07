@@ -1,7 +1,7 @@
 import { User } from '../entities/user.entity';
 import { UserResponseDto } from '../dto/responses/user-response.dto';
 import { UserConnectedDto } from '../dto/responses/user-connected.dto';
-import { Human } from '../entities/human';
+import { Human } from '../../human/entities/human';
 
 export abstract class UserMapper {
   static toDto(user: User): UserResponseDto {

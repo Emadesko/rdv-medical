@@ -21,13 +21,15 @@ export class Mock implements Seeder {
     const specialiteRepository = dataSource.getRepository(Specialite);
     const patientRepository = dataSource.getRepository(Patient);
     const docteurRepository = dataSource.getRepository(Docteur);
+    const serviceRepository = dataSource.getRepository(ServiceMedical);
 
     console.log('Création des services médicaux...');
     const services = await Promise.all(
-      Array(8)
+      Array(4)
         .fill('')
         .map(() => serviceFactory.make()),
     );
+    await serviceRepository.save(services);
 
     console.log('Création des spécialités...');
     const specialitesData = [
@@ -46,7 +48,6 @@ export class Mock implements Seeder {
       specialitesData.map((s) => ({
         ...s,
         serviceMedicals: fakerFR_SN.helpers.arrayElements(
-          // ← this.faker → faker
           services,
           fakerFR_SN.number.int({ min: 2, max: 4 }),
         ),
@@ -64,6 +65,15 @@ export class Mock implements Seeder {
           }),
         ),
     );
+    patients.push(
+      await patientFactory.make({
+        user: await userFactory.make({
+          email: 'patient@rdv.com',
+          actif: true,
+          role: UserRole.PATIENT,
+        }),
+      }),
+    );
     await patientRepository.save(patients);
 
     console.log('Création des docteurs...');
@@ -79,6 +89,15 @@ export class Mock implements Seeder {
             ),
           }),
         ),
+    );
+    docteurs.push(
+      await docteurFactory.make({
+        user: await userFactory.make({
+          email: 'docteur@rdv.com',
+          actif: true,
+          role: UserRole.ADMIN,
+        }),
+      }),
     );
     await docteurRepository.save(docteurs);
 

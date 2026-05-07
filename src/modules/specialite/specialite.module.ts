@@ -3,10 +3,12 @@ import { SpecialiteService } from './specialite.service';
 import { SpecialiteController } from './specialite.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Specialite } from './entities/specialite.entity';
+import { ServiceMedicalModule } from '../service-medical/service-medical.module';
+import { UniqueSpecialiteValidator } from './validators/unique-specialite.validator';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Specialite])],
+  imports: [ServiceMedicalModule, TypeOrmModule.forFeature([Specialite])],
   controllers: [SpecialiteController],
-  providers: [SpecialiteService],
+  providers: [SpecialiteService, UniqueSpecialiteValidator],
 })
 export class SpecialiteModule {}

@@ -7,13 +7,18 @@ import {
   Param,
   Delete,
   HttpStatus,
+  UseGuards,
+  Query,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/requests/create-user.dto';
 import { UpdateUserDto } from './dto/requests/update-user.dto';
 import { RestResponse } from '../../common/dto/responses/rest.response';
 import { UserMapper } from './mapper/user.mapper';
+import { JwtGuard } from '../auth/guards/jwt.guard';
+import { PaginationRequest } from '../../common/dto/requests/pagination.request';
 
+@UseGuards(JwtGuard)
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -28,8 +33,16 @@ export class UserController {
   }
 
   @Get()
-  findAll() {
-    return this.userService.findAll();
+  async findAll(@Query() pagination: PaginationRequest) {
+    const result = await this.userService.findAllPaginated(pagination);
+    return new RestResponse(
+      HttpStatus.CREATED,
+      {
+        users: result.data,
+      },
+      'UserResponse',
+      result.pagination,
+    );
   }
 
   @Get(':id')

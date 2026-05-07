@@ -1,5 +1,5 @@
 import { HumanResponseDto } from '../dto/responses/human-response.dto';
-import { Human } from '../../user/entities/human';
+import { Human } from '../entities/human';
 
 export abstract class HumanMapper {
   static toDto(human: Human): HumanResponseDto {

@@ -47,14 +47,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         );
     }
 
-    return res
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json(
-        new RestResponse(
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          "Une erreur inattendue s'est produite. Veuillez réessayer plus tard.",
-          'ServerError',
-        ),
-      );
+    if (process.env.NODE_ENV === 'production') {
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json(
+          new RestResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Une erreur inattendue s'est produite. Veuillez réessayer plus tard.",
+            'ServerError',
+          ),
+        );
+    }
   }
 }

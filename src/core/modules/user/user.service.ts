@@ -28,7 +28,8 @@ export class UserService extends GenericService<User> {
       throw new ConflictException('Un utilisateur possède déja cet email');
 
     const user = this.repo.create(createUserDto);
-    if (user.role === UserRole.MEDECIN) {
+    user.email.trim();
+    if (user.role === UserRole.MEDECIN || user.role === UserRole.ADMIN) {
       const docteur = new Docteur();
       docteur.user = user;
       docteur.nom = createUserDto.nom.trim().toUpperCase();
@@ -47,7 +48,7 @@ export class UserService extends GenericService<User> {
   }
 
   findByEmail(email: string) {
-    return this.repo.findOne({ where: { email: ILike(email) } });
+    return this.repo.findOne({ where: { email: ILike(email.trim()) } });
   }
 
   updating(id: number, updateUserDto: UpdateUserDto) {

@@ -19,7 +19,6 @@ export class RestResponse<T> {
     return this;
   }
 }
-
 export class PaginationResponse {
   pages: number[];
   totalElements: number;
@@ -36,9 +35,9 @@ export class PaginationResponse {
 
     this.totalPages = Math.ceil(totalElements / size);
 
-    this.hasNextPage = currentPage < this.totalPages;
-    this.hasPreviousPage = currentPage > 1;
+    this.hasNextPage = currentPage < this.totalPages - 1;
+    this.hasPreviousPage = currentPage > 0;
 
-    this.pages = Array.from({ length: this.totalPages }, (_, i) => i + 1);
+    this.pages = Array.from({ length: this.totalPages }, (_, i) => i);
   }
 }

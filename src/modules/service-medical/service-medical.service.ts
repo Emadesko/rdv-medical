@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { CreateServiceMedicalDto } from './dto/create-service-medical.dto';
-import { UpdateServiceMedicalDto } from './dto/update-service-medical.dto';
+import { CreateServiceMedicalDto } from './dto/requests/create-service-medical.dto';
+import { UpdateServiceMedicalDto } from './dto/requests/update-service-medical.dto';
 import { GenericService } from '../../core/common/services/generic.service';
 import { ServiceMedical } from './entities/service-medical.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 
 @Injectable()
 export class ServiceMedicalService extends GenericService<ServiceMedical> {
@@ -20,5 +20,9 @@ export class ServiceMedicalService extends GenericService<ServiceMedical> {
 
   updating(id: number, updateServiceMedicalDto: UpdateServiceMedicalDto) {
     return `This action updates a #${id} serviceMedical`;
+  }
+
+  findByNom(nom: string) {
+    return this.repo.findOne({ where: { nom: ILike(nom.trim()) } });
   }
 }

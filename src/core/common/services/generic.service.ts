@@ -27,7 +27,7 @@ export abstract class GenericService<T extends AbstractEntity> {
     const { page, size } = paginationDto;
 
     const [data, total] = await this.repo.findAndCount({
-      skip: (page - 1) * size,
+      skip: page * size,
       take: size,
     });
 
