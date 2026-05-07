@@ -1,6 +1,5 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
   ManyToOne,
   OneToMany,
@@ -9,12 +8,10 @@ import {
 import { StatutCreneau } from '../enums/statut-creneau';
 import { Docteur } from '../../docteur/entities/docteur.entity';
 import { Rdv } from '../../rdv/entities/rdv.entity';
+import { AbstractEntity } from '../../../core/common/entities/abstract.entity';
 
 @Entity()
-export class Creneau {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class Creneau extends AbstractEntity {
   @Column()
   date: Date;
 

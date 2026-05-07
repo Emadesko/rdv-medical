@@ -1,18 +1,15 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
   OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { Rdv } from '../../rdv/entities/rdv.entity';
 import { StatutPaiement } from '../enums/statut-paiement';
+import { AbstractEntity } from '../../../core/common/entities/abstract.entity';
 
 @Entity()
-export class Paiement {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class Paiement extends AbstractEntity{
   @Column()
   lien: string;
 

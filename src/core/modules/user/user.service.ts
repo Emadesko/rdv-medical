@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/requests/create-user.dto';
-import { UpdateUserDto } from './dto/requests/update-user.dto';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PatientService } from '../../../modules/patient/patient.service';
@@ -11,16 +10,20 @@ import { Docteur } from '../../../modules/docteur/entities/docteur.entity';
 import { Patient } from '../../../modules/patient/entities/patient.entity';
 import { NotFoundException } from '../../utils/exceptions/not-found.exception';
 import { ConflictException } from '../../utils/exceptions/conflict.exception';
+import { GenericService } from '../../common/services/generic.service';
+import { UpdateUserDto } from './dto/requests/update-user.dto';
 
 @Injectable()
-export class UserService {
+export class UserService extends GenericService<User> {
   constructor(
-    @InjectRepository(User) private readonly repo: Repository<User>,
+    @InjectRepository(User) protected readonly repo: Repository<User>,
     private readonly patientService: PatientService,
     private readonly docteurService: DocteurService,
-  ) {}
+  ) {
+    super(repo, 'Aucun utilisateur ne correspond a cet identifiant');
+  }
 
-  async create(createUserDto: CreateUserDto) {
+  async creation(createUserDto: CreateUserDto) {
     if (await this.findByEmail(createUserDto.email))
       throw new ConflictException('Un utilisateur possède déja cet email');
 
@@ -43,32 +46,11 @@ export class UserService {
     return user;
   }
 
-  async findAll() {
-    return await this.repo.find();
-  }
-
-  async findOne(id: number) {
-    const user = await this.repo.findOne({
-      where: { id },
-    });
-    if (!user) {
-      throw new NotFoundException(
-        'Aucun utilisateur ne correspond a cet identifiant',
-      );
-    }
-
-    return user;
-  }
-
   findByEmail(email: string) {
-    return this.repo.findOne({ where: { email } });
+    return this.repo.findOne({ where: { email: ILike(email) } });
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
+  updating(id: number, updateUserDto: UpdateUserDto) {
     return `This action updates a #${id} user`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
   }
 }

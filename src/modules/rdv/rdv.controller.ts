@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { RdvService } from './rdv.service';
 import { CreateRdvDto } from './dto/create-rdv.dto';
 import { UpdateRdvDto } from './dto/update-rdv.dto';
@@ -9,7 +17,7 @@ export class RdvController {
 
   @Post()
   create(@Body() createRdvDto: CreateRdvDto) {
-    return this.rdvService.create(createRdvDto);
+    return this.rdvService.creation(createRdvDto);
   }
 
   @Get()
@@ -24,7 +32,7 @@ export class RdvController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateRdvDto: UpdateRdvDto) {
-    return this.rdvService.update(+id, updateRdvDto);
+    return this.rdvService.updating(+id, updateRdvDto);
   }
 
   @Delete(':id')

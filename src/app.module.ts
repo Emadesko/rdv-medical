@@ -14,6 +14,7 @@ import { CreneauModule } from './modules/creneau/creneau.module';
 import { ServiceMedicalModule } from './modules/service-medical/service-medical.module';
 import { PaiementModule } from './modules/paiement/paiement.module';
 import { HumanModule } from './core/modules/human/human.module';
+import { SpecialiteModule } from './modules/specialite/specialite.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { HumanModule } from './core/modules/human/human.module';
     ServiceMedicalModule,
     PaiementModule,
     HumanModule,
+    SpecialiteModule,
   ],
   controllers: [AppController],
   providers: [AppService, RedisService],

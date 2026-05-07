@@ -28,4 +28,17 @@ export class PaginationResponse {
   currentPage: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
+
+  constructor(totalElements: number, size: number, currentPage: number) {
+    this.totalElements = totalElements;
+    this.size = size;
+    this.currentPage = currentPage;
+
+    this.totalPages = Math.ceil(totalElements / size);
+
+    this.hasNextPage = currentPage < this.totalPages;
+    this.hasPreviousPage = currentPage > 1;
+
+    this.pages = Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
 }

@@ -10,7 +10,7 @@ import {
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/requests/login.dto';
 import type { Response } from 'express';
-import { RestResponse } from '../../dto/rest.response';
+import { RestResponse } from '../../common/dto/responses/rest.response';
 import { AuthResponse } from './dto/responses/auth.response';
 import { JwtGuard } from './guards/jwt.guard';
 import { CurrentUser } from './decorators/current-user.decorator';

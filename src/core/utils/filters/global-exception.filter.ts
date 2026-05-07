@@ -8,7 +8,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { RestResponse } from '../../dto/rest.response';
+import { RestResponse } from '../../common/dto/responses/rest.response';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {

@@ -5,32 +5,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../core/modules/user/entities/user.entity';
 import { NotFoundException } from '../../core/utils/exceptions/not-found.exception';
+import { GenericService } from '../../core/common/services/generic.service';
 
 @Injectable()
-export class PatientService {
+export class PatientService extends GenericService<Patient> {
   constructor(
     @InjectRepository(Patient)
-    private readonly repo: Repository<Patient>,
-  ) {}
-
-  create(patient: Patient) {
-    return this.repo.save(patient);
+    protected readonly repo: Repository<Patient>,
+  ) {
+    super(repo, 'Aucun patient ne correspond à cet identifiant');
   }
 
-  findAll() {
-    return this.repo.find();
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} patient`;
-  }
-
-  update(id: number, updatePatientDto: UpdatePatientDto) {
+  updating(id: number, updatePatientDto: UpdatePatientDto) {
     return `This action updates a #${id} patient`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} patient`;
   }
 
   async getByUser(user: User): Promise<Patient> {

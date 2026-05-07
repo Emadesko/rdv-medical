@@ -3,17 +3,14 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  PrimaryGeneratedColumn,
 } from 'typeorm';
 
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../enums/user.role';
+import { AbstractEntity } from '../../../common/entities/abstract.entity';
 
 @Entity()
-export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class User extends AbstractEntity {
   @Column({ unique: true })
   email: string;
 

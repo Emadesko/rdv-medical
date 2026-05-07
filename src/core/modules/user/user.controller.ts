@@ -11,7 +11,7 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/requests/create-user.dto';
 import { UpdateUserDto } from './dto/requests/update-user.dto';
-import { RestResponse } from '../../dto/rest.response';
+import { RestResponse } from '../../common/dto/responses/rest.response';
 import { UserMapper } from './mapper/user.mapper';
 
 @Controller('users')
@@ -22,7 +22,7 @@ export class UserController {
   async create(@Body() createUserDto: CreateUserDto) {
     return new RestResponse(
       HttpStatus.CREATED,
-      UserMapper.toDto(await this.userService.create(createUserDto)),
+      UserMapper.toDto(await this.userService.creation(createUserDto)),
       'UserResponse',
     );
   }
@@ -39,7 +39,7 @@ export class UserController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(+id, updateUserDto);
+    return this.userService.updating(+id, updateUserDto);
   }
 
   @Delete(':id')

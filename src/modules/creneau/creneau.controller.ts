@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { CreneauService } from './creneau.service';
 import { CreateCreneauDto } from './dto/create-creneau.dto';
 import { UpdateCreneauDto } from './dto/update-creneau.dto';
@@ -9,7 +17,7 @@ export class CreneauController {
 
   @Post()
   create(@Body() createCreneauDto: CreateCreneauDto) {
-    return this.creneauService.create(createCreneauDto);
+    return this.creneauService.creation(createCreneauDto);
   }
 
   @Get()
@@ -24,7 +32,7 @@ export class CreneauController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateCreneauDto: UpdateCreneauDto) {
-    return this.creneauService.update(+id, updateCreneauDto);
+    return this.creneauService.updating(+id, updateCreneauDto);
   }
 
   @Delete(':id')

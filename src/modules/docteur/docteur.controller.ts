@@ -23,7 +23,7 @@ export class DocteurController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateDocteurDto: UpdateDocteurDto) {
-    return this.docteurService.update(+id, updateDocteurDto);
+    return this.docteurService.updating(+id, updateDocteurDto);
   }
 
   @Delete(':id')
