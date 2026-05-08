@@ -2,6 +2,7 @@ import { AbstractEntity } from '../../../core/common/entities/abstract.entity';
 import { Column, Entity, JoinTable, ManyToMany } from 'typeorm';
 import { Docteur } from '../../docteur/entities/docteur.entity';
 import { ServiceMedical } from '../../service-medical/entities/service-medical.entity';
+import { tr } from '@faker-js/faker';
 
 @Entity()
 export class Specialite extends AbstractEntity {
@@ -16,6 +17,7 @@ export class Specialite extends AbstractEntity {
 
   @ManyToMany(() => ServiceMedical, (service) => service.specialites, {
     cascade: true,
+    eager: true,
   })
   @JoinTable()
   serviceMedicals: ServiceMedical[];

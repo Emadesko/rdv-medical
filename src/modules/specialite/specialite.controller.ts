@@ -7,13 +7,18 @@ import {
   Param,
   Delete,
   HttpStatus,
+  UseGuards,
+  Query,
 } from '@nestjs/common';
 import { SpecialiteService } from './specialite.service';
 import { CreateSpecialiteDto } from './dto/requests/create-specialite.dto';
 import { UpdateSpecialiteDto } from './dto/requests/update-specialite.dto';
 import { RestResponse } from '../../core/common/dto/responses/rest.response';
 import { SpecialiteMapper } from './mapper/specialite.mapper';
+import { JwtGuard } from '../../core/modules/auth/guards/jwt.guard';
+import { PaginationRequest } from '../../core/common/dto/requests/pagination.request';
 
+@UseGuards(JwtGuard)
 @Controller('specialites')
 export class SpecialiteController {
   constructor(private readonly specialiteService: SpecialiteService) {}
@@ -30,8 +35,14 @@ export class SpecialiteController {
   }
 
   @Get()
-  findAll() {
-    return this.specialiteService.findAll();
+  async findAll(@Query() pagination: PaginationRequest) {
+    const result = await this.specialiteService.findAllPaginated(pagination);
+    return new RestResponse(
+      HttpStatus.OK,
+      result.data.map(SpecialiteMapper.toDto),
+      'SpecialiteDto',
+      result.pagination,
+    );
   }
 
   @Get(':id')
