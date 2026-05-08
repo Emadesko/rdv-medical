@@ -1,8 +1,7 @@
 import { AbstractEntity } from '../../../core/common/entities/abstract.entity';
-import { Column, Entity, JoinTable, ManyToMany } from 'typeorm';
-import { Docteur } from '../../docteur/entities/docteur.entity';
-import { ServiceMedical } from '../../service-medical/entities/service-medical.entity';
-import { tr } from '@faker-js/faker';
+import { Column, Entity, OneToMany } from 'typeorm';
+import { DocteurSpecialite } from '../../docteur-specialite/entities/docteur-specialite.entity';
+import { ServiceSpecialite } from '../../service-specialite/entities/service-specialite.entity';
 
 @Entity()
 export class Specialite extends AbstractEntity {
@@ -12,13 +11,12 @@ export class Specialite extends AbstractEntity {
   @Column({ nullable: true })
   description: string;
 
-  @ManyToMany(() => Docteur, (docteur) => docteur.specialites)
-  docteurs: Docteur[];
-
-  @ManyToMany(() => ServiceMedical, (service) => service.specialites, {
+  @OneToMany(() => ServiceSpecialite, (service) => service.specialite, {
     cascade: true,
     eager: true,
   })
-  @JoinTable()
-  serviceMedicals: ServiceMedical[];
+  serviceMedicals: ServiceSpecialite[];
+
+  @OneToMany(() => DocteurSpecialite, (specialite) => specialite.specialite)
+  docteurs: DocteurSpecialite[];
 }

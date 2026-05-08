@@ -6,7 +6,9 @@ import { Docteur } from '../../modules/docteur/entities/docteur.entity';
 import { ServiceMedical } from '../../modules/service-medical/entities/service-medical.entity';
 import { Specialite } from '../../modules/specialite/entities/specialite.entity';
 import { fakerFR_SN } from '@faker-js/faker';
-import { UserRole } from '../../core/modules/user/enums/user.role'; // ← import direct, pas via constructeur
+import { UserRole } from '../../core/modules/user/enums/user.role';
+import { DocteurSpecialite } from '../../modules/docteur-specialite/entities/docteur-specialite.entity';
+import { ServiceSpecialite } from '../../modules/service-specialite/entities/service-specialite.entity'; // ← import direct, pas via constructeur
 
 export class Mock implements Seeder {
   async run(
@@ -44,15 +46,23 @@ export class Mock implements Seeder {
       { nom: 'Gynécologie', description: 'Santé féminine et maternité' },
     ];
 
-    const specialites = specialiteRepository.create(
-      specialitesData.map((s) => ({
-        ...s,
-        serviceMedicals: fakerFR_SN.helpers.arrayElements(
-          services,
-          fakerFR_SN.number.int({ min: 2, max: 4 }),
-        ),
-      })),
-    );
+    const specialites: Specialite[] = [];
+
+    for (let d of specialitesData){
+      const specialite = new Specialite();
+      specialite.nom = d.nom;
+      specialite.description = d.description;
+      specialite.serviceMedicals = [];
+      for (let i = 0; i < fakerFR_SN.number.int({ min: 2, max: 4 }); i++) {
+        const s = new ServiceSpecialite();
+        s.specialite = specialite;
+        s.serviceMedical = fakerFR_SN.helpers.arrayElement(services);
+
+        specialite.serviceMedicals.push(s);
+      }
+      specialites.push(specialite);
+    }
+
     await specialiteRepository.save(specialites);
 
     console.log('Création des patients...');
@@ -77,19 +87,20 @@ export class Mock implements Seeder {
     await patientRepository.save(patients);
 
     console.log('Création des docteurs...');
-    const docteurs = await Promise.all(
-      Array(10)
-        .fill('')
-        .map(async () =>
-          docteurFactory.make({
-            user: await userFactory.make({ role: UserRole.MEDECIN }),
-            specialites: fakerFR_SN.helpers.arrayElements(
-              specialites,
-              fakerFR_SN.number.int({ min: 1, max: 3 }),
-            ),
-          }),
-        ),
-    );
+    const docteurs: Docteur[] = [];
+    for (let i = 0; i < 10; i++) {
+      const doc = await docteurFactory.make({
+        user: await userFactory.make({ role: UserRole.MEDECIN }),
+      });
+      doc.specialites = [];
+      for (let j = 0; j < fakerFR_SN.number.int({ min: 1, max: 3 }); j++) {
+        const s = new DocteurSpecialite();
+        s.specialite = fakerFR_SN.helpers.arrayElement(specialites);
+        s.docteur = doc;
+        doc.specialites.push(s);
+      }
+      docteurs.push(doc);
+    }
     docteurs.push(
       await docteurFactory.make({
         user: await userFactory.make({

@@ -15,6 +15,8 @@ import { ServiceMedicalModule } from './modules/service-medical/service-medical.
 import { PaiementModule } from './modules/paiement/paiement.module';
 import { HumanModule } from './core/modules/human/human.module';
 import { SpecialiteModule } from './modules/specialite/specialite.module';
+import { ServiceSpecialiteModule } from './modules/service-specialite/service-specialite.module';
+import { DocteurSpecialiteModule } from './modules/docteur-specialite/docteur-specialite.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { SpecialiteModule } from './modules/specialite/specialite.module';
     PaiementModule,
     HumanModule,
     SpecialiteModule,
+    ServiceSpecialiteModule,
+    DocteurSpecialiteModule,
   ],
   controllers: [AppController],
   providers: [AppService, RedisService],

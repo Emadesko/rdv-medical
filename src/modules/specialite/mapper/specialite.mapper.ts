@@ -8,7 +8,9 @@ export abstract class SpecialiteMapper {
     dto.id = specialite.id;
     dto.nom = specialite.nom;
     dto.description = specialite.description;
-    dto.serviceMedicals = specialite.serviceMedicals.map(ServiceMedicalMapper.toDto)
+    dto.serviceMedicals = specialite.serviceMedicals.map((s) =>
+      ServiceMedicalMapper.toDto(s.serviceMedical),
+    );
     return dto;
   }
 }

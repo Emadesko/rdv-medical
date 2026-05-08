@@ -7,6 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
 import { ServiceMedicalService } from '../service-medical/service-medical.service';
 import { ConflictException } from '../../core/utils/exceptions/conflict.exception';
+import { ServiceSpecialite } from '../service-specialite/entities/service-specialite.entity';
+import { ServiceMedical } from '../service-medical/entities/service-medical.entity';
 
 @Injectable()
 export class SpecialiteService extends GenericService<Specialite> {
@@ -18,10 +20,7 @@ export class SpecialiteService extends GenericService<Specialite> {
   }
 
   async creation(createSpecialiteDto: CreateSpecialiteDto) {
-    const specialite = this.repo.create(createSpecialiteDto);
-    specialite.serviceMedicals ??= [];
-
-    const noms = specialite.serviceMedicals.map((s) =>
+    const noms = createSpecialiteDto.serviceMedicals.map((s) =>
       s.nom.trim().toLowerCase(),
     );
 
@@ -33,11 +32,30 @@ export class SpecialiteService extends GenericService<Specialite> {
       );
     }
 
+    const specialite = this.repo.create();
+    specialite.nom = createSpecialiteDto.nom;
+    specialite.description = createSpecialiteDto.description;
+    specialite.serviceMedicals = [];
+
+    for (const service of createSpecialiteDto.serviceMedicals) {
+      const s = new ServiceSpecialite();
+      s.serviceMedical = new ServiceMedical();
+      s.serviceMedical.nom = service.nom;
+      s.serviceMedical.description = service.description;
+      s.serviceMedical.actif = service.actif;
+      s.serviceMedical.duree = service.duree;
+      s.serviceMedical.prix = service.prix;
+
+      s.specialite = specialite;
+      specialite.serviceMedicals.push(s);
+    }
+
     if (createSpecialiteDto.servicesIds?.length > 0) {
       for (const serviceId of createSpecialiteDto.servicesIds) {
-        specialite.serviceMedicals.push(
-          await this.serviceMedicalService.findOne(serviceId),
-        );
+        const s = new ServiceSpecialite();
+        s.serviceMedical = await this.serviceMedicalService.findOne(serviceId);
+        s.specialite = specialite;
+        specialite.serviceMedicals.push(s);
       }
     }
     return await this.create(specialite);
