@@ -18,6 +18,6 @@ export class UniqueSpecialiteValidator implements ValidatorConstraintInterface {
   }
 
   defaultMessage(args: ValidationArguments) {
-    return `Le nom "${args.value}" existe déjà`;
+    return `Le nom "${args.value}" existe déjà pour une spécialité`;
   }
 }

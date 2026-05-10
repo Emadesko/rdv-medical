@@ -1,6 +1,6 @@
 import { ServiceMedicalDto } from '../../../service-medical/dto/responses/service-medical.dto';
 
-export class SpecialiteDto {
+export class SpecialiteDetailDto {
   id: number;
 
   nom: string;
@@ -8,4 +8,12 @@ export class SpecialiteDto {
   description: string;
 
   serviceMedicals: ServiceMedicalDto[];
+}
+
+export class SpecialiteDto {
+  id: number;
+
+  nom: string;
+
+  description: string;
 }

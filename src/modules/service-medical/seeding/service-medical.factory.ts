@@ -7,13 +7,6 @@ export const ServiceMedicalFactory = setSeederFactory(
   (faker: Faker) => {
     const service = new ServiceMedical();
 
-    service.nom = faker.helpers.arrayElement([
-      'Consultation générale',
-      'Analyse de laboratoire',
-      'Urgences médicales',
-      'Vaccination',
-    ]);
-
     service.description = faker.helpers.maybe(
       () => faker.lorem.sentence({ min: 10, max: 25 }),
       { probability: 0.8 },

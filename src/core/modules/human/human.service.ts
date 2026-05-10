@@ -16,7 +16,8 @@ export class HumanService {
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
     switch (user.role) {
-      case (UserRole.MEDECIN, UserRole.ADMIN):
+      case UserRole.MEDECIN:
+      case UserRole.ADMIN:
         return await this.docteurService.getByUser(user);
       case UserRole.PATIENT:
         return await this.patientService.getByUser(user);

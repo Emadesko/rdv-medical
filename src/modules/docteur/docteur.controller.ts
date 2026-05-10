@@ -1,6 +1,18 @@
-import { Controller, Get, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  HttpStatus,
+} from '@nestjs/common';
 import { DocteurService } from './docteur.service';
 import { UpdateDocteurDto } from './dto/update-docteur.dto';
+import { PaginationRequest } from '../../core/common/dto/requests/pagination.request';
+import { RestResponse } from '../../core/common/dto/responses/rest.response';
+import { DocteurMapper } from './mapper/docteur.mapper';
 
 @Controller('docteurs')
 export class DocteurController {
@@ -12,8 +24,14 @@ export class DocteurController {
   // }
 
   @Get()
-  findAll() {
-    return this.docteurService.findAll();
+  async findAll(@Query() pagination: PaginationRequest) {
+    const result = await this.docteurService.findAllPaginated(pagination);
+    return new RestResponse(
+      HttpStatus.OK,
+      result.data.map(DocteurMapper.toDto),
+      'SpecialiteDetailDto',
+      result.pagination,
+    );
   }
 
   @Get(':id')
@@ -27,7 +45,13 @@ export class DocteurController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.docteurService.remove(+id);
+  async remove(@Param('id') id: string) {
+    await this.docteurService.findOne(+id);
+    await this.docteurService.remove(+id);
+    return new RestResponse(
+      HttpStatus.OK,
+      'Spécialité supprimée avec succès',
+      '',
+    );
   }
 }

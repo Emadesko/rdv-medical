@@ -12,7 +12,10 @@ export abstract class Human extends AbstractEntity {
   @Column()
   telephone: string;
 
-  @OneToOne(() => User, { cascade: true })
+  @Column()
+  avatar: string;
+
+  @OneToOne(() => User, { cascade: true, onDelete: 'CASCADE', eager: true })
   @JoinColumn()
   user: User;
 }

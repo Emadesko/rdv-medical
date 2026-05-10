@@ -1,15 +1,25 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { ServiceSpecialiteService } from './service-specialite.service';
 import { CreateServiceSpecialiteDto } from './dto/create-service-specialite.dto';
 import { UpdateServiceSpecialiteDto } from './dto/update-service-specialite.dto';
 
 @Controller('service-specialite')
 export class ServiceSpecialiteController {
-  constructor(private readonly serviceSpecialiteService: ServiceSpecialiteService) {}
+  constructor(
+    private readonly serviceSpecialiteService: ServiceSpecialiteService,
+  ) {}
 
   @Post()
   create(@Body() createServiceSpecialiteDto: CreateServiceSpecialiteDto) {
-    return this.serviceSpecialiteService.create(createServiceSpecialiteDto);
+    return this.serviceSpecialiteService.creation(createServiceSpecialiteDto);
   }
 
   @Get()
@@ -23,8 +33,14 @@ export class ServiceSpecialiteController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateServiceSpecialiteDto: UpdateServiceSpecialiteDto) {
-    return this.serviceSpecialiteService.update(+id, updateServiceSpecialiteDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateServiceSpecialiteDto: UpdateServiceSpecialiteDto,
+  ) {
+    return this.serviceSpecialiteService.updating(
+      +id,
+      updateServiceSpecialiteDto,
+    );
   }
 
   @Delete(':id')

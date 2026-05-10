@@ -22,7 +22,13 @@ export class ServiceMedicalService extends GenericService<ServiceMedical> {
     return `This action updates a #${id} serviceMedical`;
   }
 
-  findByNom(nom: string) {
-    return this.repo.findOne({ where: { nom: ILike(nom.trim()) } });
+  findByNom(nom?: string) {
+    if (nom) return this.repo.findOne({ where: { nom: ILike(nom.trim()) } });
+    else return this.repo.findOne({ where: { nom } });
+  }
+
+  findAllByNom(nom?: string) {
+    if (nom) return this.repo.find({ where: { nom: ILike(nom.trim()) } });
+    else return this.repo.find({ where: { nom } });
   }
 }

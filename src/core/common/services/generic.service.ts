@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { FindOptionsOrder, Repository } from 'typeorm';
 import { AbstractEntity } from '../entities/abstract.entity';
 import { NotFoundException } from '../../utils/exceptions/not-found.exception';
 import { PaginationRequest } from '../dto/requests/pagination.request';
@@ -29,6 +29,7 @@ export abstract class GenericService<T extends AbstractEntity> {
     const [data, total] = await this.repo.findAndCount({
       skip: page * size,
       take: size,
+      order: { id: 'DESC' } as FindOptionsOrder<T>,
     });
 
     return {

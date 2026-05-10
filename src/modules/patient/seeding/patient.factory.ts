@@ -7,5 +7,6 @@ export const PatientFactory = setSeederFactory(Patient, () => {
   patient.nom = fakerFR_SN.person.lastName();
   patient.prenom = fakerFR_SN.person.firstName();
   patient.telephone = fakerFR_SN.phone.number();
+  patient.avatar = fakerFR_SN.image.avatar();
   return patient;
 });

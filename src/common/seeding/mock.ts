@@ -26,10 +26,16 @@ export class Mock implements Seeder {
     const serviceRepository = dataSource.getRepository(ServiceMedical);
 
     console.log('Création des services médicaux...');
+
+    const servicesDatas = [
+      'Consultation générale',
+      'Analyse de laboratoire',
+      'Urgences médicales',
+      'Vaccination',
+    ];
+
     const services = await Promise.all(
-      Array(4)
-        .fill('')
-        .map(() => serviceFactory.make()),
+      servicesDatas.map((nom) => serviceFactory.make({ nom })),
     );
     await serviceRepository.save(services);
 
@@ -48,17 +54,20 @@ export class Mock implements Seeder {
 
     const specialites: Specialite[] = [];
 
-    for (let d of specialitesData){
+    for (const d of specialitesData) {
+      const servicesAlready: ServiceMedical[] = [];
       const specialite = new Specialite();
       specialite.nom = d.nom;
       specialite.description = d.description;
       specialite.serviceMedicals = [];
-      for (let i = 0; i < fakerFR_SN.number.int({ min: 2, max: 4 }); i++) {
+      for (let i = 1; i < fakerFR_SN.number.int({ min: 2, max: 4 }); i++) {
         const s = new ServiceSpecialite();
         s.specialite = specialite;
-        s.serviceMedical = fakerFR_SN.helpers.arrayElement(services);
-
+        do {
+          s.serviceMedical = fakerFR_SN.helpers.arrayElement(services);
+        } while (servicesAlready.includes(s.serviceMedical));
         specialite.serviceMedicals.push(s);
+        servicesAlready.push(s.serviceMedical);
       }
       specialites.push(specialite);
     }
@@ -93,7 +102,7 @@ export class Mock implements Seeder {
         user: await userFactory.make({ role: UserRole.MEDECIN }),
       });
       doc.specialites = [];
-      for (let j = 0; j < fakerFR_SN.number.int({ min: 1, max: 3 }); j++) {
+      for (let j = 1; j < fakerFR_SN.number.int({ min: 2, max: 6 }); j++) {
         const s = new DocteurSpecialite();
         s.specialite = fakerFR_SN.helpers.arrayElement(specialites);
         s.docteur = doc;
@@ -101,15 +110,25 @@ export class Mock implements Seeder {
       }
       docteurs.push(doc);
     }
-    docteurs.push(
-      await docteurFactory.make({
-        user: await userFactory.make({
-          email: 'docteur@rdv.com',
-          actif: true,
-          role: UserRole.ADMIN,
-        }),
+    const admin = await docteurFactory.make({
+      user: await userFactory.make({
+        email: 'docteur@rdv.com',
+        actif: true,
+        role: UserRole.ADMIN,
       }),
-    );
+    });
+    admin.specialites = [];
+    const specialiteAlready: Specialite[] = [];
+    for (let j = 1; j < fakerFR_SN.number.int({ min: 2, max: 6 }); j++) {
+      const s = new DocteurSpecialite();
+      do {
+        s.specialite = fakerFR_SN.helpers.arrayElement(specialites);
+      } while (specialiteAlready.includes(s.specialite));
+      s.docteur = admin;
+      specialiteAlready.push(s.specialite);
+      admin.specialites.push(s);
+    }
+    docteurs.push(admin);
     await docteurRepository.save(docteurs);
 
     console.log('✅ Seed terminé !');

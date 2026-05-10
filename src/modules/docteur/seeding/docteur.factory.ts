@@ -7,5 +7,6 @@ export const DocteurFactory = setSeederFactory(Docteur, () => {
   doc.nom = fakerFR_SN.person.lastName();
   doc.prenom = fakerFR_SN.person.firstName();
   doc.telephone = fakerFR_SN.phone.number();
+  doc.avatar = fakerFR_SN.image.avatar();
   return doc;
 });
