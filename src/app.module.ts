@@ -17,6 +17,8 @@ import { HumanModule } from './core/modules/human/human.module';
 import { SpecialiteModule } from './modules/specialite/specialite.module';
 import { ServiceSpecialiteModule } from './modules/service-specialite/service-specialite.module';
 import { DocteurSpecialiteModule } from './modules/docteur-specialite/docteur-specialite.module';
+import { MailerModule } from '@nestjs-modules/mailer';
+import mailConfig from './common/mail/mailConfig';
 
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { DocteurSpecialiteModule } from './modules/docteur-specialite/docteur-sp
       isGlobal: true,
     }),
     TypeOrmModule.forRoot(dbConfig()),
+    MailerModule.forRoot(mailConfig()),
     UserModule,
     PatientModule,
     DocteurModule,

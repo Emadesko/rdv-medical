@@ -8,9 +8,12 @@ import { Docteur } from '../docteur/entities/docteur.entity';
 import { Creneau } from '../creneau/entities/creneau.entity';
 import { ServiceMedical } from '../service-medical/entities/service-medical.entity';
 import { PatientModule } from '../patient/patient.module';
+import { DocteurModule } from '../docteur/docteur.module';
+import { PaiementModule } from '../paiement/paiement.module';
 
 @Module({
   imports: [
+    DocteurModule,
     PatientModule,
     TypeOrmModule.forFeature([
       Rdv,
@@ -22,5 +25,6 @@ import { PatientModule } from '../patient/patient.module';
   ],
   controllers: [RdvController],
   providers: [RdvService],
+  exports: [RdvService],
 })
 export class RdvModule {}

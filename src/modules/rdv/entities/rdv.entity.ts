@@ -15,6 +15,9 @@ export class Rdv extends AbstractEntity {
   @Column({ nullable: true })
   motif: string;
 
+  @Column({ default: false })
+  alreadyValidate: boolean;
+
   @Column({
     type: 'enum',
     enum: StatutRdv,
@@ -29,6 +32,9 @@ export class Rdv extends AbstractEntity {
   @ManyToOne(() => ServiceMedical)
   service: ServiceMedical;
 
-  @OneToOne(() => Paiement, (p) => p.rdv)
+  @OneToOne(() => Paiement, (p) => p.rdv, {
+    cascade: true,
+    eager: true,
+  })
   paiement: Paiement;
 }

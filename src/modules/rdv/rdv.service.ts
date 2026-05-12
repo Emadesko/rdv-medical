@@ -10,11 +10,14 @@ import { Specialite } from '../specialite/entities/specialite.entity';
 import { Docteur } from '../docteur/entities/docteur.entity';
 import { Creneau } from '../creneau/entities/creneau.entity';
 import { NotFoundException } from '../../core/utils/exceptions/not-found.exception';
-import { Patient } from '../patient/entities/patient.entity';
 import { ServiceMedical } from '../service-medical/entities/service-medical.entity';
 import { StatutRdv } from './enums/statut-rdv';
 import { PatientService } from '../patient/patient.service';
 import { User } from '../../core/modules/user/entities/user.entity';
+import { PaginationRequest } from '../../core/common/dto/requests/pagination.request';
+import { PaginationResponse } from '../../core/common/dto/responses/rest.response';
+import { ConflictException } from '../../core/utils/exceptions/conflict.exception';
+import { DocteurService } from '../docteur/docteur.service';
 
 @Injectable()
 export class RdvService extends GenericService<Rdv> {
@@ -32,6 +35,7 @@ export class RdvService extends GenericService<Rdv> {
     @InjectRepository(Creneau)
     private creneauRepo: Repository<Creneau>,
     private patientService: PatientService,
+    private docteurService: DocteurService,
   ) {
     super(repo, 'Aucun rendez vous ne correspond à cet identifiant');
   }
@@ -164,19 +168,194 @@ export class RdvService extends GenericService<Rdv> {
   }
 
   async getCreneauxByDocteurAndDate(docteurId: number, date: string) {
-    const creneaux = await this.creneauRepo.find({
-      where: {
-        docteur: { id: docteurId },
-        date: new Date(date),
-        statut: In([StatutCreneau.DISPONIBLE, StatutCreneau.EN_ATTENTE]),
-      },
-      order: { heureDebut: 'ASC' },
-    });
+    const today = new Date().toISOString().split('T')[0];
+    const isToday = date === today;
 
-    return creneaux.map((c) => ({
+    const query = this.creneauRepo
+      .createQueryBuilder('c')
+      .where('c.docteurId = :docteurId', { docteurId })
+      .andWhere('c.date = :date', { date })
+      .andWhere('c.statut IN (:...statuts)', {
+        statuts: [StatutCreneau.DISPONIBLE, StatutCreneau.EN_ATTENTE],
+      });
+
+    if (isToday) {
+      const now = new Date();
+      const heureActuelle = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      query.andWhere('c.heureDebut > :heureActuelle', { heureActuelle });
+    }
+
+    return (await query.orderBy('c.heureDebut', 'ASC').getMany()).map((c) => ({
       id: c.id,
       start: c.heureDebut,
       end: c.heureFin,
     }));
+  }
+
+  async getMesRdv(
+    user: User,
+    pagination: PaginationRequest,
+  ): Promise<{
+    data: { stats: any; rdvs: any[] };
+    pagination: PaginationResponse;
+  }> {
+    const patient = await this.patientService.getByUser(user);
+    const { page, size } = pagination;
+
+    const [rdvs, total] = await this.repo
+      .createQueryBuilder('rdv')
+      .leftJoinAndSelect('rdv.creneau', 'creneau')
+      .leftJoinAndSelect('creneau.docteur', 'docteur')
+      .leftJoinAndSelect('rdv.service', 'service')
+      .where('rdv.patient = :patientId', { patientId: patient.id })
+      .orderBy('creneau.date', 'DESC')
+      .addOrderBy('creneau.heureDebut', 'DESC')
+      .skip(page * size)
+      .take(size)
+      .getManyAndCount();
+
+    const tousRdvs = await this.repo
+      .createQueryBuilder('rdv')
+      .leftJoinAndSelect('rdv.creneau', 'creneau')
+      .leftJoinAndSelect('creneau.docteur', 'docteur')
+      .leftJoinAndSelect('rdv.service', 'service')
+      .where('rdv.patient = :patientId', { patientId: patient.id })
+      .getMany();
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const prochainRdv =
+      tousRdvs
+        .filter(
+          (r) =>
+            r.statut === StatutRdv.PAYE &&
+            new Date(r.creneau.date).toISOString().split('T')[0] >= today,
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.creneau.date).getTime() -
+            new Date(b.creneau.date).getTime(),
+        )[0] ?? null;
+
+    return {
+      data: {
+        stats: {
+          enAttente: tousRdvs.filter((r) => r.statut === StatutRdv.EN_ATTENTE)
+            .length,
+          aPayer: tousRdvs.filter((r) => r.statut === StatutRdv.VALIDE).length,
+          confirmes: tousRdvs.filter((r) => r.statut === StatutRdv.CONFIRME)
+            .length,
+          prochainRdv: prochainRdv
+            ? {
+                date: this.formatDateLong(new Date(prochainRdv.creneau.date)),
+                heure: prochainRdv.creneau.heureDebut,
+                docteur: `Dr. ${prochainRdv.creneau.docteur.prenom} ${prochainRdv.creneau.docteur.nom}`,
+              }
+            : null,
+        },
+        rdvs: rdvs.map((r) => ({
+          id: r.id,
+          statut: r.statut,
+          prix: r.service.prix,
+          service: r.service.nom,
+          docteur: {
+            nom: `Dr. ${r.creneau.docteur.prenom} ${r.creneau.docteur.nom}`,
+            avatar: r.creneau.docteur.avatar,
+          },
+          date: this.formatDateLong(new Date(r.creneau.date)),
+          heure: r.creneau.heureDebut,
+          peutAnnuler: [StatutRdv.EN_ATTENTE, StatutRdv.VALIDE].includes(
+            r.statut,
+          ),
+        })),
+      },
+      pagination: new PaginationResponse(total, size, page),
+    };
+  }
+
+  async annulerRdv(rdvId: number, user: User) {
+    const patient = await this.patientService.getByUser(user);
+
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId, patient: { id: patient.id } },
+      relations: ['creneau', 'creneau.rdvs'],
+    });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+
+    if (![StatutRdv.EN_ATTENTE, StatutRdv.VALIDE].includes(rdv.statut)) {
+      throw new ConflictException(
+        `Impossible d'annuler un rendez-vous déjà "${rdv.statut.toLowerCase()}"`,
+      );
+    }
+
+    rdv.statut = StatutRdv.ANNULE;
+    await this.repo.save(rdv);
+
+    const creneau = rdv.creneau;
+
+    const autresDemandesEnAttente = creneau.rdvs.filter(
+      (r) => r.id !== rdv.id && r.statut === StatutRdv.EN_ATTENTE,
+    );
+
+    if (autresDemandesEnAttente.length > 0) {
+      creneau.statut = StatutCreneau.EN_ATTENTE;
+    } else {
+      creneau.statut = StatutCreneau.DISPONIBLE;
+    }
+
+    await this.creneauRepo.save(creneau);
+
+    return rdv;
+  }
+
+  async getDemandes(
+    user: User,
+    pagination: PaginationRequest,
+  ): Promise<{ data: any[]; pagination: PaginationResponse }> {
+    const docteur = await this.docteurService.getByUser(user);
+    const { page, size } = pagination;
+
+    const [rdvs, total] = await this.repo
+      .createQueryBuilder('rdv')
+      .leftJoinAndSelect('rdv.creneau', 'creneau')
+      .leftJoinAndSelect('rdv.patient', 'patient')
+      .leftJoinAndSelect('patient.user', 'user')
+      .leftJoinAndSelect('rdv.service', 'service')
+      .where('creneau.docteur = :docteurId', { docteurId: docteur.id })
+      .andWhere('rdv.statut = :statut', { statut: StatutRdv.EN_ATTENTE })
+      .orderBy('creneau.date', 'ASC')
+      .addOrderBy('creneau.heureDebut', 'ASC')
+      .skip(page * size)
+      .take(size)
+      .getManyAndCount();
+
+    return {
+      data: rdvs.map((r) => ({
+        id: r.id,
+        statut: r.statut,
+        motif: r.motif,
+        patient: {
+          nom: `${r.patient.prenom} ${r.patient.nom}`,
+          email: r.patient.user.email,
+          telephone: r.patient.telephone,
+          avatar: r.patient.avatar,
+        },
+        service: r.service.nom,
+        prix: r.service.prix,
+        date: this.formatDateLong(new Date(r.creneau.date)),
+        heure: r.creneau.heureDebut,
+      })),
+      pagination: new PaginationResponse(total, size, page),
+    };
+  }
+
+  private formatDateLong(date: Date): string {
+    return date.toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
   }
 }

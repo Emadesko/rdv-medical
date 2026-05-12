@@ -17,7 +17,7 @@ export const ServiceMedicalFactory = setSeederFactory(
       max: 50000,
     });
 
-    service.duree = faker.number.int({ min: 15, max: 180 });
+    service.duree = faker.number.int({ min: 15, max: 90 });
 
     service.actif = faker.datatype.boolean({ probability: 0.9 });
 

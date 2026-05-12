@@ -1,4 +1,6 @@
 export enum StatutPaiement {
   PAYE = 'PAYE',
-  IMPAYE = 'IMPAYE',
+  EN_ATTENTE = 'EN_ATTENTE',
+  EXPIRE = 'EXPIRE',
+  ECHOUE = 'ECHOUE',
 }

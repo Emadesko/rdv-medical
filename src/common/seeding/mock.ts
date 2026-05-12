@@ -98,13 +98,17 @@ export class Mock implements Seeder {
     console.log('Création des docteurs...');
     const docteurs: Docteur[] = [];
     for (let i = 0; i < 10; i++) {
+      const specialiteAlready: Specialite[] = [];
       const doc = await docteurFactory.make({
         user: await userFactory.make({ role: UserRole.MEDECIN }),
       });
       doc.specialites = [];
       for (let j = 1; j < fakerFR_SN.number.int({ min: 2, max: 6 }); j++) {
         const s = new DocteurSpecialite();
-        s.specialite = fakerFR_SN.helpers.arrayElement(specialites);
+        do {
+          s.specialite = fakerFR_SN.helpers.arrayElement(specialites);
+        } while (specialiteAlready.includes(s.specialite));
+        specialiteAlready.push(s.specialite);
         s.docteur = doc;
         doc.specialites.push(s);
       }
