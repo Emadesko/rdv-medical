@@ -1,5 +1,6 @@
 export enum StatutCreneau {
-  DISPONIBLE = 'DISPONIBLE',
-  RESERVE = 'RESERVE',
-  BLOQUE = 'BLOQUE',
+  DISPONIBLE = 'Disponible',
+  EN_ATTENTE = 'En Attente',
+  RESERVE = 'Reservé(Payé)',
+  BLOQUE = 'Bloqué',
 }

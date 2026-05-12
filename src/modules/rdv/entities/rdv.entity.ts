@@ -1,10 +1,4 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToOne,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from 'typeorm';
 import { Patient } from '../../patient/entities/patient.entity';
 import { StatutRdv } from '../enums/statut-rdv';
 import { Creneau } from '../../creneau/entities/creneau.entity';
