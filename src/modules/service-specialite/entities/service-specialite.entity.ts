@@ -1,5 +1,5 @@
 import { AbstractEntity } from '../../../core/common/entities/abstract.entity';
-import { Entity, ManyToOne } from 'typeorm';
+import { Column, Entity, ManyToOne } from 'typeorm';
 import { Specialite } from '../../specialite/entities/specialite.entity';
 import { ServiceMedical } from '../../service-medical/entities/service-medical.entity';
 
@@ -15,4 +15,7 @@ export class ServiceSpecialite extends AbstractEntity {
     eager: true,
   })
   serviceMedical: ServiceMedical;
+
+  @Column({ default: true })
+  actif: boolean;
 }

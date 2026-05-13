@@ -34,7 +34,14 @@ export class RdvExpirationCron {
         rdv.alreadyValidate = true;
         await this.rdvRepo.save(rdv);
 
-        rdv.creneau.statut = StatutCreneau.EN_ATTENTE;
+        const autresEnAttente = rdv.creneau.rdvs.filter(
+          (r) => r.id !== rdv.id && r.statut === StatutRdv.EN_ATTENTE,
+        );
+
+        rdv.creneau.statut =
+          autresEnAttente.length > 0
+            ? StatutCreneau.EN_ATTENTE
+            : StatutCreneau.DISPONIBLE;
 
         await this.creneauRepo.save(rdv.creneau);
 
@@ -54,7 +61,8 @@ export class RdvExpirationCron {
       .leftJoinAndSelect('rdv.creneau', 'creneau')
       .leftJoinAndSelect('rdv.patient', 'patient')
       .leftJoinAndSelect('patient.user', 'user')
-      .leftJoinAndSelect('rdv.service', 'service')
+      .leftJoinAndSelect('rdv.service', 'ss')
+      .leftJoinAndSelect('ss.serviceMedical', 'service')
       .where('rdv.statut = :statut', { statut: StatutRdv.EN_ATTENTE })
       .andWhere('creneau.date = :today', { today })
       .andWhere('creneau.heureDebut < :heureActuelle', { heureActuelle })
@@ -80,7 +88,7 @@ export class RdvExpirationCron {
         rdv.patient.user.email,
         `${rdv.patient.prenom} ${rdv.patient.nom}`,
         {
-          service: rdv.service.nom,
+          service: rdv.service.serviceMedical.nom,
           date: DateFormatHelper.formatDateLong(new Date(rdv.creneau.date)),
           heure: rdv.creneau.heureDebut,
         },

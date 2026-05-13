@@ -76,9 +76,7 @@ export class SpecialiteService extends GenericService<Specialite> {
     const noms = updateSpecialiteDto.serviceMedicals.map((s) =>
       s.nom.trim().toLowerCase(),
     );
-
     const uniqueNoms = new Set(noms);
-
     if (uniqueNoms.size !== noms.length) {
       throw new ConflictException(
         'Deux services médicaux ne peuvent pas avoir le même nom',
@@ -96,29 +94,42 @@ export class SpecialiteService extends GenericService<Specialite> {
       s.serviceMedical.actif = service.actif;
       s.serviceMedical.duree = service.duree;
       s.serviceMedical.prix = service.prix;
-
       s.specialite = specialite;
+      s.actif = true;
       specialite.serviceMedicals.push(s);
     }
 
+    // ── Services existants à associer ────────────────────────────
     if (updateSpecialiteDto.servicesIds?.length > 0) {
       for (const serviceId of updateSpecialiteDto.servicesIds) {
-        const s = new ServiceSpecialite();
-        s.serviceMedical = await this.serviceMedicalService.findOne(serviceId);
-        s.specialite = specialite;
-        specialite.serviceMedicals.push(s);
+        const existingInactif = await this.serviceSpecialiteService.findInactif(
+          specialite.id,
+          serviceId,
+        );
+
+        if (existingInactif) {
+          await this.serviceSpecialiteService.reactiver(existingInactif.id);
+        } else {
+          const s = new ServiceSpecialite();
+          s.serviceMedical =
+            await this.serviceMedicalService.findOne(serviceId);
+          s.specialite = specialite;
+          s.actif = true;
+          specialite.serviceMedicals.push(s);
+        }
       }
     }
 
     if (updateSpecialiteDto.servicesToRemoveIds?.length > 0) {
       for (const serviceId of updateSpecialiteDto.servicesToRemoveIds) {
-        await this.serviceSpecialiteService.remove(serviceId);
+        await this.serviceSpecialiteService.desactiver(serviceId);
       }
 
       specialite.serviceMedicals = specialite.serviceMedicals.filter(
         (s) => !updateSpecialiteDto.servicesToRemoveIds.includes(s.id),
       );
     }
+
     return await this.update(specialite);
   }
 
@@ -129,9 +140,9 @@ export class SpecialiteService extends GenericService<Specialite> {
   async getUpdateDatas(id: number, nom?: string) {
     const specialite = await this.findOne(id);
 
-    const alreadyLinkedIds = specialite.serviceMedicals.map(
-      (ss) => ss.serviceMedical.id,
-    );
+    const alreadyLinkedIds = specialite.serviceMedicals
+      .filter((ss) => ss.actif)
+      .map((ss) => ss.serviceMedical.id);
 
     const services = await this.serviceMedicalService.findAllByNom(nom);
 

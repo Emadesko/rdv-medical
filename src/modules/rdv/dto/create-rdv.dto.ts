@@ -7,7 +7,7 @@ export class CreateRdvDto {
 
   @IsNumber()
   @IsNotEmpty()
-  serviceMedicalId: number;
+  serviceSpecialiteId: number;
 
   @IsString()
   @IsNotEmpty()

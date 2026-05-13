@@ -10,7 +10,6 @@ import { Specialite } from '../specialite/entities/specialite.entity';
 import { Docteur } from '../docteur/entities/docteur.entity';
 import { Creneau } from '../creneau/entities/creneau.entity';
 import { NotFoundException } from '../../core/utils/exceptions/not-found.exception';
-import { ServiceMedical } from '../service-medical/entities/service-medical.entity';
 import { StatutRdv } from './enums/statut-rdv';
 import { PatientService } from '../patient/patient.service';
 import { User } from '../../core/modules/user/entities/user.entity';
@@ -24,6 +23,7 @@ import { MailService } from '../../common/mail/mail.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { RdvExpirationCron } from './crons/rdv-expiration.cron';
 import { DateFormatHelper } from '../../common/helpers/date-format.helper';
+import { ServiceSpecialite } from '../service-specialite/entities/service-specialite.entity';
 
 @Injectable()
 export class RdvService extends GenericService<Rdv> {
@@ -32,8 +32,8 @@ export class RdvService extends GenericService<Rdv> {
     @InjectRepository(Specialite)
     private specialiteRepo: Repository<Specialite>,
 
-    @InjectRepository(ServiceMedical)
-    private serviceMedicalRepo: Repository<ServiceMedical>,
+    @InjectRepository(ServiceSpecialite)
+    private serviceSpecialiteRepo: Repository<ServiceSpecialite>,
 
     @InjectRepository(Docteur)
     private docteurRepo: Repository<Docteur>,
@@ -57,13 +57,17 @@ export class RdvService extends GenericService<Rdv> {
         id: createRdvDto.creneauId,
         statut: In([StatutCreneau.DISPONIBLE, StatutCreneau.EN_ATTENTE]),
       },
+      relations: ['docteur'], // ← ajouter pour avoir le nom du docteur
     });
     if (!creneau) throw new NotFoundException('Créneau non disponible');
 
-    const service = await this.serviceMedicalRepo.findOne({
-      where: { id: createRdvDto.serviceMedicalId, actif: true },
+    const service = await this.serviceSpecialiteRepo.findOne({
+      where: { id: createRdvDto.serviceSpecialiteId },
+      relations: ['serviceMedical'],
     });
     if (!service) throw new NotFoundException('Service non trouvé');
+    if (!service.serviceMedical.actif)
+      throw new ConflictException("Ce service n'est pas disponible");
 
     const rdv = new Rdv();
     rdv.creneau = creneau;
@@ -74,8 +78,22 @@ export class RdvService extends GenericService<Rdv> {
 
     creneau.statut = StatutCreneau.EN_ATTENTE;
     await this.creneauRepo.save(creneau);
+    await this.repo.save(rdv);
 
-    return await this.repo.save(rdv);
+    await this.mailService.sendDemandeCreee(
+      patient.user.email,
+      `${patient.prenom} ${patient.nom}`,
+      {
+        service: service.serviceMedical.nom,
+        date: DateFormatHelper.formatDateLong(new Date(creneau.date)),
+        heure: creneau.heureDebut,
+        docteur: `Dr. ${creneau.docteur.prenom} ${creneau.docteur.nom}`,
+        prix: service.serviceMedical.prix,
+        motif: createRdvDto.motif,
+      },
+    );
+
+    return rdv;
   }
 
   updating(id: number, updateRdvDto: UpdateRdvDto) {
@@ -126,14 +144,13 @@ export class RdvService extends GenericService<Rdv> {
     if (!specialite) throw new NotFoundException('Spécialité non trouvée');
 
     return specialite.serviceMedicals
-      .map((ss) => ss.serviceMedical)
-      .filter((s) => s.actif)
-      .map((s) => ({
-        id: s.id,
-        nom: s.nom,
-        description: s.description,
-        prix: s.prix,
-        duree: s.duree,
+      .filter((ss) => ss.actif && ss.serviceMedical.actif)
+      .map((ss) => ({
+        id: ss.id,
+        nom: ss.serviceMedical.nom,
+        description: ss.serviceMedical.description,
+        prix: ss.serviceMedical.prix,
+        duree: ss.serviceMedical.duree,
       }));
   }
 
@@ -216,7 +233,8 @@ export class RdvService extends GenericService<Rdv> {
       .createQueryBuilder('rdv')
       .leftJoinAndSelect('rdv.creneau', 'creneau')
       .leftJoinAndSelect('creneau.docteur', 'docteur')
-      .leftJoinAndSelect('rdv.service', 'service')
+      .leftJoinAndSelect('rdv.service', 'ss')
+      .leftJoinAndSelect('ss.serviceMedical', 'service')
       .where('rdv.patient = :patientId', { patientId: patient.id })
       .orderBy('creneau.date', 'DESC')
       .addOrderBy('creneau.heureDebut', 'DESC')
@@ -228,7 +246,8 @@ export class RdvService extends GenericService<Rdv> {
       .createQueryBuilder('rdv')
       .leftJoinAndSelect('rdv.creneau', 'creneau')
       .leftJoinAndSelect('creneau.docteur', 'docteur')
-      .leftJoinAndSelect('rdv.service', 'service')
+      .leftJoinAndSelect('rdv.service', 'ss')
+      .leftJoinAndSelect('ss.serviceMedical', 'service')
       .where('rdv.patient = :patientId', { patientId: patient.id })
       .getMany();
 
@@ -257,7 +276,9 @@ export class RdvService extends GenericService<Rdv> {
             .length,
           prochainRdv: prochainRdv
             ? {
-                date: DateFormatHelper.formatDateLong(new Date(prochainRdv.creneau.date)),
+                date: DateFormatHelper.formatDateLong(
+                  new Date(prochainRdv.creneau.date),
+                ),
                 heure: prochainRdv.creneau.heureDebut,
                 docteur: `Dr. ${prochainRdv.creneau.docteur.prenom} ${prochainRdv.creneau.docteur.nom}`,
               }
@@ -267,8 +288,8 @@ export class RdvService extends GenericService<Rdv> {
           id: r.id,
           statut: r.statut,
           motifRejet: r.motifRejet,
-          prix: r.service.prix,
-          service: r.service.nom,
+          prix: r.service.serviceMedical.prix,
+          service: r.service.serviceMedical.nom,
           docteur: {
             nom: `Dr. ${r.creneau.docteur.prenom} ${r.creneau.docteur.nom}`,
             avatar: r.creneau.docteur.avatar,
@@ -332,7 +353,8 @@ export class RdvService extends GenericService<Rdv> {
       .leftJoinAndSelect('rdv.creneau', 'creneau')
       .leftJoinAndSelect('rdv.patient', 'patient')
       .leftJoinAndSelect('patient.user', 'user')
-      .leftJoinAndSelect('rdv.service', 'service')
+      .leftJoinAndSelect('rdv.service', 'ss')
+      .leftJoinAndSelect('ss.serviceMedical', 'service')
       .where('creneau.docteur = :docteurId', { docteurId: docteur.id })
       .andWhere('rdv.statut = :statut', { statut: StatutRdv.EN_ATTENTE })
       .orderBy('creneau.date', 'ASC')
@@ -352,8 +374,8 @@ export class RdvService extends GenericService<Rdv> {
           telephone: r.patient.telephone,
           avatar: r.patient.avatar,
         },
-        service: r.service.nom,
-        prix: r.service.prix,
+        service: r.service.serviceMedical.nom,
+        prix: r.service.serviceMedical.prix,
         date: DateFormatHelper.formatDateLong(new Date(r.creneau.date)),
         heure: r.creneau.heureDebut,
       })),
@@ -372,6 +394,7 @@ export class RdvService extends GenericService<Rdv> {
         'patient',
         'patient.user',
         'service',
+        'service.serviceMedical',
       ],
     });
 
@@ -415,8 +438,8 @@ export class RdvService extends GenericService<Rdv> {
 
     const bictorysUrl = await this.bictorysService.createPaymentLink({
       rdvId: rdv.id,
-      montant: rdv.service.prix,
-      description: `Consultation - ${rdv.service.nom}`,
+      montant: rdv.service.serviceMedical.prix,
+      description: `Consultation - ${rdv.service.serviceMedical.nom}`,
       customerEmail: rdv.patient.user.email,
       customerName: `${rdv.patient.prenom} ${rdv.patient.nom}`,
       customerPhone: rdv.patient.telephone,
@@ -440,10 +463,10 @@ export class RdvService extends GenericService<Rdv> {
       `${rdv.patient.prenom} ${rdv.patient.nom}`,
       paymentPageUrl,
       {
-        service: rdv.service.nom,
+        service: rdv.service.serviceMedical.nom,
         date: DateFormatHelper.formatDateLong(new Date(rdv.creneau.date)),
         heure: rdv.creneau.heureDebut,
-        prix: rdv.service.prix,
+        prix: rdv.service.serviceMedical.prix,
         docteur: `Dr. ${docteur.prenom} ${docteur.nom}`,
       },
     );
@@ -463,6 +486,7 @@ export class RdvService extends GenericService<Rdv> {
         'patient',
         'patient.user',
         'service',
+        'service.serviceMedical',
       ],
     });
 
@@ -477,14 +501,16 @@ export class RdvService extends GenericService<Rdv> {
       );
     }
 
-    if (rdv.statut !== StatutRdv.EN_ATTENTE)
-      throw new ConflictException(
-        `Impossible de rejeter un RDV avec le statut "${rdv.statut}"`,
-      );
+    const ancienStatut = rdv.statut;
 
     rdv.statut = StatutRdv.REJETE;
     rdv.motifRejet = motif;
     await this.repo.save(rdv);
+
+    if (ancienStatut === StatutRdv.VALIDE) {
+      await this.redisService.del(`payment_link:${rdv.id}`);
+      await this.redisService.del(`payment_timer:${rdv.id}`);
+    }
 
     const autresDemandesEnAttente = rdv.creneau.rdvs.filter(
       (r) => r.id !== rdv.id && r.statut === StatutRdv.EN_ATTENTE,
@@ -502,10 +528,10 @@ export class RdvService extends GenericService<Rdv> {
       `${rdv.patient.prenom} ${rdv.patient.nom}`,
       motif,
       {
-        service: rdv.service.nom,
+        service: rdv.service.serviceMedical.nom,
         date: DateFormatHelper.formatDateLong(new Date(rdv.creneau.date)),
         heure: rdv.creneau.heureDebut,
-        prix: rdv.service.prix,
+        prix: rdv.service.serviceMedical.prix,
         docteur: `Dr. ${docteur.prenom} ${docteur.nom}`,
       },
     );
@@ -555,6 +581,34 @@ export class RdvService extends GenericService<Rdv> {
       await this.redisService.del(redisKey);
       await this.redisService.del(`payment_timer:${rdvId}`);
 
+      const rdvComplet = await this.repo.findOne({
+        where: { id: rdvId },
+        relations: [
+          'creneau',
+          'creneau.docteur',
+          'patient',
+          'patient.user',
+          'service',
+          'service.serviceMedical',
+        ],
+      });
+
+      if (!rdvComplet) throw new NotFoundException('Rendez vous non trouvé');
+
+      await this.mailService.sendConfirmationPaiement(
+        rdvComplet.patient.user.email,
+        `${rdvComplet.patient.prenom} ${rdvComplet.patient.nom}`,
+        {
+          service: rdvComplet.service.serviceMedical.nom,
+          date: DateFormatHelper.formatDateLong(
+            new Date(rdvComplet.creneau.date),
+          ),
+          heure: rdvComplet.creneau.heureDebut,
+          prix: rdvComplet.service.serviceMedical.prix,
+          docteur: `Dr. ${rdvComplet.creneau.docteur.prenom} ${rdvComplet.creneau.docteur.nom}`,
+        },
+      );
+
       return { expired: false, message: 'Paiement simulé avec succès' };
     }
 
@@ -572,6 +626,7 @@ export class RdvService extends GenericService<Rdv> {
         'patient',
         'patient.user',
         'service',
+        'service.serviceMedical',
       ],
     });
 
@@ -591,8 +646,8 @@ export class RdvService extends GenericService<Rdv> {
 
     const bictorysUrl = await this.bictorysService.createPaymentLink({
       rdvId: rdv.id,
-      montant: rdv.service.prix,
-      description: `Consultation - ${rdv.service.nom}`,
+      montant: rdv.service.serviceMedical.prix,
+      description: `Consultation - ${rdv.service.serviceMedical.nom}`,
       customerEmail: rdv.patient.user.email,
       customerName: `${rdv.patient.prenom} ${rdv.patient.nom}`,
       customerPhone: rdv.patient.telephone,

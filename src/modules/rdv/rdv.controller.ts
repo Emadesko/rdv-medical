@@ -117,7 +117,7 @@ export class RdvController {
   async rejeterRdv(
     @Param('id') id: number,
     @CurrentUser() user: User,
-    @Body() motif: string,
+    @Body('motif') motif: string,
   ) {
     await this.rdvService.rejeter(+id, user, motif);
     return new RestResponse(

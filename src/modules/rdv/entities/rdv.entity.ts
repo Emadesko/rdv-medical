@@ -2,9 +2,9 @@ import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from 'typeorm';
 import { Patient } from '../../patient/entities/patient.entity';
 import { StatutRdv } from '../enums/statut-rdv';
 import { Creneau } from '../../creneau/entities/creneau.entity';
-import { ServiceMedical } from '../../service-medical/entities/service-medical.entity';
 import { Paiement } from '../../paiement/entities/paiement.entity';
 import { AbstractEntity } from '../../../core/common/entities/abstract.entity';
+import { ServiceSpecialite } from '../../service-specialite/entities/service-specialite.entity';
 
 @Entity()
 export class Rdv extends AbstractEntity {
@@ -32,8 +32,9 @@ export class Rdv extends AbstractEntity {
   @JoinColumn()
   creneau: Creneau;
 
-  @ManyToOne(() => ServiceMedical)
-  service: ServiceMedical;
+  @ManyToOne(() => ServiceSpecialite)
+  @JoinColumn()
+  service: ServiceSpecialite;
 
   @OneToOne(() => Paiement, (p) => p.rdv, {
     cascade: true,
