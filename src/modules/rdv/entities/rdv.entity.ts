@@ -15,6 +15,9 @@ export class Rdv extends AbstractEntity {
   @Column({ nullable: true })
   motif: string;
 
+  @Column({ nullable: true })
+  motifRejet: string;
+
   @Column({ default: false })
   alreadyValidate: boolean;
 

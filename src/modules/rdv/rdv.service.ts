@@ -18,6 +18,12 @@ import { PaginationRequest } from '../../core/common/dto/requests/pagination.req
 import { PaginationResponse } from '../../core/common/dto/responses/rest.response';
 import { ConflictException } from '../../core/utils/exceptions/conflict.exception';
 import { DocteurService } from '../docteur/docteur.service';
+import { ForbiddenException } from '../../core/utils/exceptions/forbidden.exception';
+import { BictorysService } from '../../common/bictorys/bictorys.service';
+import { MailService } from '../../common/mail/mail.service';
+import { RedisService } from '../../common/redis/redis.service';
+import { RdvExpirationCron } from './crons/rdv-expiration.cron';
+import { DateFormatHelper } from '../../common/helpers/date-format.helper';
 
 @Injectable()
 export class RdvService extends GenericService<Rdv> {
@@ -36,6 +42,10 @@ export class RdvService extends GenericService<Rdv> {
     private creneauRepo: Repository<Creneau>,
     private patientService: PatientService,
     private docteurService: DocteurService,
+    private bictorysService: BictorysService,
+    private mailService: MailService,
+    private redisService: RedisService,
+    private rdvExpirationCron: RdvExpirationCron,
   ) {
     super(repo, 'Aucun rendez vous ne correspond à cet identifiant');
   }
@@ -247,7 +257,7 @@ export class RdvService extends GenericService<Rdv> {
             .length,
           prochainRdv: prochainRdv
             ? {
-                date: this.formatDateLong(new Date(prochainRdv.creneau.date)),
+                date: DateFormatHelper.formatDateLong(new Date(prochainRdv.creneau.date)),
                 heure: prochainRdv.creneau.heureDebut,
                 docteur: `Dr. ${prochainRdv.creneau.docteur.prenom} ${prochainRdv.creneau.docteur.nom}`,
               }
@@ -256,13 +266,14 @@ export class RdvService extends GenericService<Rdv> {
         rdvs: rdvs.map((r) => ({
           id: r.id,
           statut: r.statut,
+          motifRejet: r.motifRejet,
           prix: r.service.prix,
           service: r.service.nom,
           docteur: {
             nom: `Dr. ${r.creneau.docteur.prenom} ${r.creneau.docteur.nom}`,
             avatar: r.creneau.docteur.avatar,
           },
-          date: this.formatDateLong(new Date(r.creneau.date)),
+          date: DateFormatHelper.formatDateLong(new Date(r.creneau.date)),
           heure: r.creneau.heureDebut,
           peutAnnuler: [StatutRdv.EN_ATTENTE, StatutRdv.VALIDE].includes(
             r.statut,
@@ -343,19 +354,256 @@ export class RdvService extends GenericService<Rdv> {
         },
         service: r.service.nom,
         prix: r.service.prix,
-        date: this.formatDateLong(new Date(r.creneau.date)),
+        date: DateFormatHelper.formatDateLong(new Date(r.creneau.date)),
         heure: r.creneau.heureDebut,
       })),
       pagination: new PaginationResponse(total, size, page),
     };
   }
 
-  private formatDateLong(date: Date): string {
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
+  async valider(rdvId: number, user: User) {
+    const docteur = await this.docteurService.getByUser(user);
+
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId },
+      relations: [
+        'creneau',
+        'creneau.docteur',
+        'patient',
+        'patient.user',
+        'service',
+      ],
     });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+
+    if (rdv.creneau.docteur.id !== docteur.id)
+      throw new ForbiddenException('Cette demande ne vous est pas destinée');
+
+    const today = new Date().toISOString().split('T')[0];
+    const creneauDate = new Date(rdv.creneau.date).toISOString().split('T')[0];
+
+    if (creneauDate === today) {
+      const now = new Date();
+      const [h, m] = rdv.creneau.heureDebut.split(':').map(Number);
+      const heureDebut = new Date();
+      heureDebut.setHours(h, m, 0, 0);
+
+      if (now > heureDebut) {
+        throw new ConflictException(
+          'Impossible de valider ce rendez-vous — le créneau est déjà passé',
+        );
+      }
+    }
+
+    if (rdv.creneau.statut === StatutCreneau.VALIDE)
+      throw new ForbiddenException(
+        "Un rendez-vous pour ce créneau est en attente de paiement. Veuillez patienter l'expiration du délai de paiement.",
+      );
+
+    if (rdv.statut !== StatutRdv.EN_ATTENTE)
+      throw new ConflictException(
+        `Impossible de valider un RDV avec le statut "${rdv.statut}"`,
+      );
+
+    rdv.statut = StatutRdv.VALIDE;
+    rdv.alreadyValidate = true;
+    await this.repo.save(rdv);
+
+    rdv.creneau.statut = StatutCreneau.VALIDE;
+    await this.creneauRepo.save(rdv.creneau);
+
+    const bictorysUrl = await this.bictorysService.createPaymentLink({
+      rdvId: rdv.id,
+      montant: rdv.service.prix,
+      description: `Consultation - ${rdv.service.nom}`,
+      customerEmail: rdv.patient.user.email,
+      customerName: `${rdv.patient.prenom} ${rdv.patient.nom}`,
+      customerPhone: rdv.patient.telephone,
+    });
+
+    await this.redisService.set(
+      `payment_link:${rdv.id}`,
+      bictorysUrl,
+      Number(process.env.PAYMENT_LINK_EXPIRES_IN),
+    );
+
+    await this.redisService.set(
+      `payment_timer:${rdv.id}`,
+      rdv.id.toString(),
+      1800,
+    );
+
+    const paymentPageUrl = `${process.env.FRONTEND_URL}/mes-rdv?payer=${rdv.id}`;
+    await this.mailService.sendPaymentLink(
+      rdv.patient.user.email,
+      `${rdv.patient.prenom} ${rdv.patient.nom}`,
+      paymentPageUrl,
+      {
+        service: rdv.service.nom,
+        date: DateFormatHelper.formatDateLong(new Date(rdv.creneau.date)),
+        heure: rdv.creneau.heureDebut,
+        prix: rdv.service.prix,
+        docteur: `Dr. ${docteur.prenom} ${docteur.nom}`,
+      },
+    );
+
+    return rdv;
+  }
+
+  async rejeter(rdvId: number, user: User, motif: string) {
+    const docteur = await this.docteurService.getByUser(user);
+
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId },
+      relations: [
+        'creneau',
+        'creneau.docteur',
+        'creneau.rdvs',
+        'patient',
+        'patient.user',
+        'service',
+      ],
+    });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+
+    if (rdv.creneau.docteur.id !== docteur.id)
+      throw new ForbiddenException('Cette demande ne vous est pas destinée');
+
+    if (![StatutRdv.EN_ATTENTE, StatutRdv.VALIDE].includes(rdv.statut)) {
+      throw new ConflictException(
+        `Impossible de rejeter un rendez-vous déjà "${rdv.statut.toLowerCase()}"`,
+      );
+    }
+
+    if (rdv.statut !== StatutRdv.EN_ATTENTE)
+      throw new ConflictException(
+        `Impossible de rejeter un RDV avec le statut "${rdv.statut}"`,
+      );
+
+    rdv.statut = StatutRdv.REJETE;
+    rdv.motifRejet = motif;
+    await this.repo.save(rdv);
+
+    const autresDemandesEnAttente = rdv.creneau.rdvs.filter(
+      (r) => r.id !== rdv.id && r.statut === StatutRdv.EN_ATTENTE,
+    );
+
+    if (autresDemandesEnAttente.length > 0) {
+      rdv.creneau.statut = StatutCreneau.EN_ATTENTE;
+    } else {
+      rdv.creneau.statut = StatutCreneau.DISPONIBLE;
+    }
+    await this.creneauRepo.save(rdv.creneau);
+
+    await this.mailService.sendRejet(
+      rdv.patient.user.email,
+      `${rdv.patient.prenom} ${rdv.patient.nom}`,
+      motif,
+      {
+        service: rdv.service.nom,
+        date: DateFormatHelper.formatDateLong(new Date(rdv.creneau.date)),
+        heure: rdv.creneau.heureDebut,
+        prix: rdv.service.prix,
+        docteur: `Dr. ${docteur.prenom} ${docteur.nom}`,
+      },
+    );
+
+    return rdv;
+  }
+
+  async getPaymentLink(rdvId: number, user: User) {
+    const patient = await this.patientService.getByUser(user);
+
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId, patient: { id: patient.id } },
+      relations: ['creneau', 'service'],
+    });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+
+    if (rdv.statut === StatutRdv.PAYE)
+      throw new ConflictException('Ce rendez-vous a déja été payé');
+
+    if (rdv.statut !== StatutRdv.VALIDE)
+      throw new ConflictException(
+        "Ce rendez-vous n'est pas en attente de paiement",
+      );
+
+    if (!(await this.redisService.get(`payment_timer:${rdvId}`))) {
+      await this.rdvExpirationCron.handleExpiredPayments();
+      throw new ForbiddenException(
+        "Le délai d'expiration du paiement est passé!\nVeuillez attentre la revalidation du médecin",
+      );
+    }
+
+    const redisKey = `payment_link:${rdvId}`;
+    const lien = await this.redisService.get(redisKey);
+
+    if (!lien) {
+      return { expired: true };
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      rdv.statut = StatutRdv.PAYE;
+      await this.repo.save(rdv);
+
+      rdv.creneau.statut = StatutCreneau.RESERVE;
+      await this.creneauRepo.save(rdv.creneau);
+
+      await this.redisService.del(redisKey);
+      await this.redisService.del(`payment_timer:${rdvId}`);
+
+      return { expired: false, message: 'Paiement simulé avec succès' };
+    }
+
+    return { url: lien, expired: false };
+  }
+
+  async regeneratePaymentLink(rdvId: number, user: User) {
+    const patient = await this.patientService.getByUser(user);
+
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId, patient: { id: patient.id } },
+      relations: [
+        'creneau',
+        'creneau.docteur',
+        'patient',
+        'patient.user',
+        'service',
+      ],
+    });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+    if (rdv.statut !== StatutRdv.VALIDE)
+      throw new ForbiddenException(
+        "Ce rendez-vous n'est pas en attente de paiement",
+      );
+
+    const timer = await this.redisService.get(`payment_timer:${rdvId}`);
+    if (!timer) {
+      await this.rdvExpirationCron.handleExpiredPayments();
+      throw new ForbiddenException(
+        'Le délai de paiement de 30 minutes est dépassé',
+      );
+    }
+
+    const bictorysUrl = await this.bictorysService.createPaymentLink({
+      rdvId: rdv.id,
+      montant: rdv.service.prix,
+      description: `Consultation - ${rdv.service.nom}`,
+      customerEmail: rdv.patient.user.email,
+      customerName: `${rdv.patient.prenom} ${rdv.patient.nom}`,
+      customerPhone: rdv.patient.telephone,
+    });
+
+    await this.redisService.set(
+      `payment_link:${rdvId}`,
+      bictorysUrl,
+      Number(process.env.PAYMENT_LINK_EXPIRES_IN),
+    );
+
+    return { url: bictorysUrl };
   }
 }

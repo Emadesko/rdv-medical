@@ -11,8 +11,8 @@ export class Paiement extends AbstractEntity {
   @Column()
   montant: number;
 
-  @Column()
-  reference: string;
+  @Column({ nullable: true })
+  transactionId: string;
 
   @Column({
     type: 'enum',

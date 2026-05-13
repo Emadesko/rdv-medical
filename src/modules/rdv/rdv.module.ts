@@ -9,12 +9,17 @@ import { Creneau } from '../creneau/entities/creneau.entity';
 import { ServiceMedical } from '../service-medical/entities/service-medical.entity';
 import { PatientModule } from '../patient/patient.module';
 import { DocteurModule } from '../docteur/docteur.module';
-import { PaiementModule } from '../paiement/paiement.module';
+import { BictorysService } from '../../common/bictorys/bictorys.service';
+import { MailService } from '../../common/mail/mail.service';
+import { RedisService } from '../../common/redis/redis.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { RdvExpirationCron } from './crons/rdv-expiration.cron';
 
 @Module({
   imports: [
     DocteurModule,
     PatientModule,
+    ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([
       Rdv,
       Specialite,
@@ -24,7 +29,13 @@ import { PaiementModule } from '../paiement/paiement.module';
     ]),
   ],
   controllers: [RdvController],
-  providers: [RdvService],
+  providers: [
+    RdvService,
+    BictorysService,
+    MailService,
+    RedisService,
+    RdvExpirationCron,
+  ],
   exports: [RdvService],
 })
 export class RdvModule {}

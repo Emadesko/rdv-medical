@@ -19,8 +19,11 @@ import { JwtGuard } from '../../core/modules/auth/guards/jwt.guard';
 import { PaginationRequest } from '../../core/common/dto/requests/pagination.request';
 import { ServiceMedicalService } from '../service-medical/service-medical.service';
 import { ServiceMedicalMapper } from '../service-medical/mapper/service-medical.mapper';
+import { RolesGuard } from '../../core/modules/auth/guards/roles.guard';
+import { Roles } from '../../core/modules/auth/decorators/roles.decorator';
+import { UserRole } from '../../core/modules/user/enums/user.role';
 
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, RolesGuard)
 @Controller('specialites')
 export class SpecialiteController {
   constructor(
@@ -50,6 +53,7 @@ export class SpecialiteController {
     );
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MEDECIN)
   @Get()
   async findAll(@Query() pagination: PaginationRequest) {
     const result = await this.specialiteService.findAllPaginated(pagination);

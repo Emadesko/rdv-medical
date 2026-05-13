@@ -102,12 +102,47 @@ export class RdvController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.MEDECIN, UserRole.ADMIN)
   @Patch(':id/valider')
-  validerRdv(@Param('id') id: number) {
+  async validerRdv(@Param('id') id: number, @CurrentUser() user: User) {
+    await this.rdvService.valider(+id, user);
     return new RestResponse(
       HttpStatus.OK,
-      'Rendez vous annuler avec succès',
+      'Rendez vous valider avec succès!',
       'RdvDto',
     );
+  }
+
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(UserRole.MEDECIN, UserRole.ADMIN)
+  @Patch(':id/rejeter')
+  async rejeterRdv(
+    @Param('id') id: number,
+    @CurrentUser() user: User,
+    @Body() motif: string,
+  ) {
+    await this.rdvService.rejeter(+id, user, motif);
+    return new RestResponse(
+      HttpStatus.OK,
+      'Rendez vous rejeter avec succès!',
+      'RdvDto',
+    );
+  }
+
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(UserRole.PATIENT)
+  @Get(':id/payment-link')
+  async getPaymentLink(@Param('id') id: number, @CurrentUser() user: User) {
+    const result = await this.rdvService.getPaymentLink(+id, user);
+    return new RestResponse(HttpStatus.OK, result, 'PaymentLinkDto');
+  }
+
+  @UseGuards(JwtGuard)
+  @Post(':id/regenerate-payment-link')
+  async regeneratePaymentLink(
+    @Param('id') id: number,
+    @CurrentUser() user: User,
+  ) {
+    const result = await this.rdvService.regeneratePaymentLink(+id, user);
+    return new RestResponse(HttpStatus.OK, result, 'PaymentLinkDto');
   }
 
   @UseGuards(JwtGuard, RolesGuard)
