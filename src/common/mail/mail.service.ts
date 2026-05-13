@@ -237,6 +237,36 @@ export class MailService {
     });
   }
 
+  async sendRdvAutoRejeteValider(
+    email: string,
+    nom: string,
+    details: { service: string; date: string; heure: string },
+  ) {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: '⏰ Votre demande a été rejeté — Créneau occupé',
+      html: this.layout(`
+        <h2 style="color: #111827; margin-top: 0;">Bonjour ${nom},</h2>
+        <p style="color: #374151; line-height: 1.6;">
+          Nous vous informons que votre demande de rendez-vous a été
+          <strong style="color: #dc2626;">automatiquement annulée</strong>
+          car un autre patient à déjà été retenu pour ce créneau.
+        </p>
+        ${this.rdvCard(details)}
+        <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 14px; margin: 16px 0;">
+          <p style="margin: 0; color: #78350f; font-size: 13px;">
+            ℹ️ Votre demande était toujours en attente de validation au moment où une autre demande à été validée.
+            Nous nous excusons pour la gêne occasionnée.
+          </p>
+        </div>
+        <p style="color: #374151; line-height: 1.6;">
+          Nous vous invitons à effectuer une nouvelle demande pour un créneau disponible.
+        </p>
+        ${this.button('🗓️ Prendre un nouveau RDV', `${process.env.FRONTEND_URL}/prendre-rdv`)}
+      `),
+    });
+  }
+
   async sendRappel(
     email: string,
     nom: string,

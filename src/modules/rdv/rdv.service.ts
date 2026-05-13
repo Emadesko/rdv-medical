@@ -442,6 +442,11 @@ export class RdvService extends GenericService<Rdv> {
         "Un rendez-vous pour ce créneau est en attente de paiement. Veuillez patienter l'expiration du délai de paiement.",
       );
 
+    if (rdv.creneau.statut !== StatutCreneau.EN_ATTENTE)
+      throw new ForbiddenException(
+        `Impossible de valider un RDV avec un créneau "${rdv.creneau.statut}"`,
+      );
+
     if (rdv.statut !== StatutRdv.EN_ATTENTE)
       throw new ConflictException(
         `Impossible de valider un RDV avec le statut "${rdv.statut}"`,
@@ -575,6 +580,11 @@ export class RdvService extends GenericService<Rdv> {
         "Ce rendez-vous n'est pas en attente de paiement",
       );
 
+    if (rdv.creneau.statut !== StatutCreneau.VALIDE)
+      throw new ForbiddenException(
+        `Impossible de payer un RDV avec un créneau "${rdv.creneau.statut}"`,
+      );
+
     if (!(await this.redisService.get(`payment_timer:${rdvId}`))) {
       await this.rdvExpirationCron.handleExpiredPayments();
       throw new ForbiddenException(
@@ -595,6 +605,35 @@ export class RdvService extends GenericService<Rdv> {
 
       rdv.creneau.statut = StatutCreneau.RESERVE;
       await this.creneauRepo.save(rdv.creneau);
+
+      const rdvsEnAttente = await this.repo
+        .createQueryBuilder('rdv')
+        .leftJoinAndSelect('rdv.creneau', 'creneau')
+        .leftJoinAndSelect('rdv.patient', 'patient')
+        .leftJoinAndSelect('patient.user', 'user')
+        .leftJoinAndSelect('rdv.service', 'ss')
+        .leftJoinAndSelect('ss.serviceMedical', 'service')
+        .where('rdv.statut IN (:...statuts)', {
+          statuts: [StatutRdv.EN_ATTENTE, StatutRdv.VALIDE],
+        })
+        .andWhere('creneau.id = :id', { id: rdv.creneau.id })
+        .getMany();
+
+      for (const r of rdvsEnAttente) {
+        r.statut = StatutRdv.REJETE;
+        r.motifRejet =
+          'Rendez-vous automatiquement annulé — un autre client à déja confirmé en payant';
+        await this.repo.save(r);
+        await this.mailService.sendRdvAutoRejeteValider(
+          r.patient.user.email,
+          `${r.patient.prenom} ${r.patient.nom}`,
+          {
+            service: r.service.serviceMedical.nom,
+            date: DateFormatHelper.formatDateLong(new Date(r.creneau.date)),
+            heure: r.creneau.heureDebut,
+          },
+        );
+      }
 
       await this.redisService.del(redisKey);
       await this.redisService.del(`payment_timer:${rdvId}`);
