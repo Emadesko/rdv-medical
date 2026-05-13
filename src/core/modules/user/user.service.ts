@@ -8,10 +8,10 @@ import { DocteurService } from '../../../modules/docteur/docteur.service';
 import { UserRole } from './enums/user.role';
 import { Docteur } from '../../../modules/docteur/entities/docteur.entity';
 import { Patient } from '../../../modules/patient/entities/patient.entity';
-import { NotFoundException } from '../../utils/exceptions/not-found.exception';
 import { ConflictException } from '../../utils/exceptions/conflict.exception';
 import { GenericService } from '../../common/services/generic.service';
 import { UpdateUserDto } from './dto/requests/update-user.dto';
+import { fakerFR_SN } from '@faker-js/faker';
 
 @Injectable()
 export class UserService extends GenericService<User> {
@@ -35,6 +35,7 @@ export class UserService extends GenericService<User> {
       docteur.nom = createUserDto.nom.trim().toUpperCase();
       docteur.prenom = createUserDto.prenom.trim();
       docteur.telephone = createUserDto.telephone.trim();
+      docteur.avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${fakerFR_SN.string.uuid()}`;
       await this.docteurService.create(docteur);
     } else {
       const patient = new Patient();
@@ -42,6 +43,7 @@ export class UserService extends GenericService<User> {
       patient.nom = createUserDto.nom.trim().toUpperCase();
       patient.prenom = createUserDto.prenom.trim();
       patient.telephone = createUserDto.telephone.trim();
+      patient.avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${fakerFR_SN.string.uuid()}`;
       await this.patientService.create(patient);
     }
     return user;

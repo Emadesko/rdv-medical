@@ -124,7 +124,7 @@ export class MailService {
           <p style="margin: 0; color: #78350f; font-size: 13px;">
             ⚠️ <strong>Important :</strong> Le lien de paiement est valable <strong>10 minutes</strong>.
             Passé ce délai, vous pourrez en générer un nouveau depuis votre espace pendant les
-            <strong>30 minutes</strong> suivant la validation. Au-delà, votre demande sera remise en attente.
+            <strong>1 heure</strong> suivant la validation. Au-delà, votre demande sera remise en attente.
           </p>
         </div>
         ${this.button('💳 Payer maintenant', paymentPageUrl)}

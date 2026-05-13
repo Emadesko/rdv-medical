@@ -27,4 +27,16 @@ export class RedisService {
   async del(key: string) {
     return this.client.del(key);
   }
+
+  async ttl(key: string): Promise<number | null> {
+    console.log(key);
+    const ttl = await this.client.ttl(key);
+    console.log(ttl);
+
+    if (ttl < 0) {
+      return null;
+    }
+
+    return ttl;
+  }
 }

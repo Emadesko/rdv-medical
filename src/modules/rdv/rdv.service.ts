@@ -284,22 +284,34 @@ export class RdvService extends GenericService<Rdv> {
               }
             : null,
         },
-        rdvs: rdvs.map((r) => ({
-          id: r.id,
-          statut: r.statut,
-          motifRejet: r.motifRejet,
-          prix: r.service.serviceMedical.prix,
-          service: r.service.serviceMedical.nom,
-          docteur: {
-            nom: `Dr. ${r.creneau.docteur.prenom} ${r.creneau.docteur.nom}`,
-            avatar: r.creneau.docteur.avatar,
-          },
-          date: DateFormatHelper.formatDateLong(new Date(r.creneau.date)),
-          heure: r.creneau.heureDebut,
-          peutAnnuler: [StatutRdv.EN_ATTENTE, StatutRdv.VALIDE].includes(
-            r.statut,
-          ),
-        })),
+        rdvs: await Promise.all(
+          rdvs.map(async (r) => ({
+            id: r.id,
+            statut: r.statut,
+            motifRejet: r.motifRejet,
+
+            prix: r.service.serviceMedical.prix,
+            service: r.service.serviceMedical.nom,
+
+            ttl:
+              r.statut == StatutRdv.VALIDE
+                ? await this.redisService.ttl(`payment_link:${r.id}`)
+                : null,
+
+            docteur: {
+              nom: `Dr. ${r.creneau.docteur.prenom} ${r.creneau.docteur.nom}`,
+              avatar: r.creneau.docteur.avatar,
+            },
+
+            date: DateFormatHelper.formatDateLong(new Date(r.creneau.date)),
+
+            heure: r.creneau.heureDebut,
+
+            peutAnnuler: [StatutRdv.EN_ATTENTE, StatutRdv.VALIDE].includes(
+              r.statut,
+            ),
+          })),
+        ),
       },
       pagination: new PaginationResponse(total, size, page),
     };
@@ -454,7 +466,7 @@ export class RdvService extends GenericService<Rdv> {
     await this.redisService.set(
       `payment_timer:${rdv.id}`,
       rdv.id.toString(),
-      1800,
+      3600,
     );
 
     const paymentPageUrl = `${process.env.FRONTEND_URL}/mes-rdv?payer=${rdv.id}`;

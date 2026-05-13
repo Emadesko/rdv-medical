@@ -18,7 +18,6 @@ import { UserMapper } from './mapper/user.mapper';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { PaginationRequest } from '../../common/dto/requests/pagination.request';
 
-@UseGuards(JwtGuard)
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -32,6 +31,7 @@ export class UserController {
     );
   }
 
+  @UseGuards(JwtGuard)
   @Get()
   async findAll(@Query() pagination: PaginationRequest) {
     const result = await this.userService.findAllPaginated(pagination);

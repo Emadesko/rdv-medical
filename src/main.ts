@@ -16,7 +16,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  // app.useGlobalFilters(new GlobalExceptionFilter());
 
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
