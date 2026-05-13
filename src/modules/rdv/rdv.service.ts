@@ -24,6 +24,12 @@ import { RedisService } from '../../common/redis/redis.service';
 import { RdvExpirationCron } from './crons/rdv-expiration.cron';
 import { DateFormatHelper } from '../../common/helpers/date-format.helper';
 import { ServiceSpecialite } from '../service-specialite/entities/service-specialite.entity';
+import { AnnulerRdvMedecinDto } from './dto/annuler-rdv-medecin.dto';
+import {
+  FilterConsultationsDto,
+  FiltreDate,
+} from './dto/filter-consultations.dto';
+import { ConfirmerRdvDto } from './dto/confirmer-rdv.dto';
 
 @Injectable()
 export class RdvService extends GenericService<Rdv> {
@@ -672,5 +678,175 @@ export class RdvService extends GenericService<Rdv> {
     );
 
     return { url: bictorysUrl };
+  }
+
+  async getConsultations(user: User, filters: FilterConsultationsDto) {
+    const docteur = await this.docteurService.getByUser(user);
+    const { page, size, statut, date, dateDebut, dateFin, recherche } = filters;
+
+    const query = this.repo
+      .createQueryBuilder('rdv')
+      .leftJoinAndSelect('rdv.creneau', 'creneau')
+      .leftJoinAndSelect('rdv.patient', 'patient')
+      .leftJoinAndSelect('patient.user', 'user')
+      .leftJoinAndSelect('rdv.service', 'ss')
+      .leftJoinAndSelect('ss.serviceMedical', 'service')
+      .where('creneau.docteur = :docteurId', { docteurId: docteur.id })
+      .andWhere('rdv.statut IN (:...statuts)', {
+        statuts: [
+          StatutRdv.PAYE,
+          StatutRdv.CONFIRME,
+          StatutRdv.ABSENT,
+          StatutRdv.ANNULE,
+        ],
+      });
+
+    if (statut) query.andWhere('rdv.statut = :statut', { statut });
+
+    const today = new Date();
+    if (date === FiltreDate.AUJOURD_HUI) {
+      query.andWhere('creneau.date = :today', {
+        today: today.toISOString().split('T')[0],
+      });
+    } else if (date === FiltreDate.CETTE_SEMAINE) {
+      const lundi = new Date(today);
+      lundi.setDate(today.getDate() - today.getDay() + 1);
+      const dimanche = new Date(lundi);
+      dimanche.setDate(lundi.getDate() + 6);
+      query.andWhere('creneau.date BETWEEN :debut AND :fin', {
+        debut: lundi.toISOString().split('T')[0],
+        fin: dimanche.toISOString().split('T')[0],
+      });
+    } else if (date === FiltreDate.CE_MOIS) {
+      const debut = new Date(today.getFullYear(), today.getMonth(), 1);
+      const fin = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      query.andWhere('creneau.date BETWEEN :debut AND :fin', {
+        debut: debut.toISOString().split('T')[0],
+        fin: fin.toISOString().split('T')[0],
+      });
+    } else if (date === FiltreDate.PLAGE && dateDebut && dateFin) {
+      query.andWhere('creneau.date BETWEEN :debut AND :fin', {
+        debut: dateDebut,
+        fin: dateFin,
+      });
+    }
+
+    if (recherche) {
+      query.andWhere(
+        '(LOWER(patient.nom) LIKE :recherche OR LOWER(patient.prenom) LIKE :recherche OR patient.telephone LIKE :recherche)',
+        { recherche: `%${recherche.toLowerCase()}%` },
+      );
+    }
+
+    const [rdvs, total] = await query
+      .orderBy('creneau.date', 'DESC')
+      .addOrderBy('creneau.heureDebut', 'DESC')
+      .skip(page * size)
+      .take(size)
+      .getManyAndCount();
+
+    return {
+      data: rdvs.map((r) => ({
+        id: r.id,
+        statut: r.statut,
+        notesMedicales: r.notesMedicales,
+        motifRejet: r.motifRejet,
+        patient: {
+          nom: `${r.patient.prenom} ${r.patient.nom}`,
+          telephone: r.patient.telephone,
+          email: r.patient.user.email,
+          avatar: r.patient.avatar,
+          motif: r.motif,
+        },
+        service: r.service?.serviceMedical?.nom ?? 'Service supprimé',
+        prix: r.service?.serviceMedical?.prix ?? 0,
+        date: new Date(r.creneau.date).toLocaleDateString('fr-FR'),
+        heure: r.creneau.heureDebut,
+      })),
+      pagination: new PaginationResponse(total, size, page),
+    };
+  }
+
+  async confirmerConsultation(rdvId: number, user: User, dto: ConfirmerRdvDto) {
+    const docteur = await this.docteurService.getByUser(user);
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId },
+      relations: ['creneau', 'creneau.docteur'],
+    });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+    if (rdv.creneau.docteur.id !== docteur.id)
+      throw new ForbiddenException('Ce rendez-vous ne vous appartient pas');
+    if (rdv.statut !== StatutRdv.PAYE)
+      throw new ConflictException('Seul un RDV payé peut être confirmé');
+
+    rdv.statut = StatutRdv.CONFIRME;
+    rdv.notesMedicales = dto.notesMedicales ?? null;
+    return await this.repo.save(rdv);
+  }
+
+  async marquerAbsent(rdvId: number, user: User) {
+    const docteur = await this.docteurService.getByUser(user);
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId },
+      relations: ['creneau', 'creneau.docteur'],
+    });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+    if (rdv.creneau.docteur.id !== docteur.id)
+      throw new ForbiddenException('Ce rendez-vous ne vous appartient pas');
+    if (rdv.statut !== StatutRdv.PAYE)
+      throw new ConflictException('Seul un RDV payé peut être marqué absent');
+
+    rdv.statut = StatutRdv.ABSENT;
+    return await this.repo.save(rdv);
+  }
+
+  async annulerParMedecin(
+    rdvId: number,
+    user: User,
+    dto: AnnulerRdvMedecinDto,
+  ) {
+    const docteur = await this.docteurService.getByUser(user);
+    const rdv = await this.repo.findOne({
+      where: { id: rdvId },
+      relations: [
+        'creneau',
+        'creneau.docteur',
+        'creneau.rdvs',
+        'patient',
+        'patient.user',
+        'service',
+        'service.serviceMedical',
+      ],
+    });
+
+    if (!rdv) throw new NotFoundException('Rendez-vous non trouvé');
+    if (rdv.creneau.docteur.id !== docteur.id)
+      throw new ForbiddenException('Ce rendez-vous ne vous appartient pas');
+    if (rdv.statut !== StatutRdv.PAYE)
+      throw new ConflictException('Seul un RDV payé peut être annulé');
+
+    rdv.statut = StatutRdv.ANNULE;
+    rdv.motifRejet = dto.motif;
+    await this.repo.save(rdv);
+
+    rdv.creneau.statut = StatutCreneau.DISPONIBLE;
+    await this.creneauRepo.save(rdv.creneau);
+
+    await this.mailService.sendRejet(
+      rdv.patient.user.email,
+      `${rdv.patient.prenom} ${rdv.patient.nom}`,
+      dto.motif,
+      {
+        service: rdv.service?.serviceMedical?.nom ?? 'Service',
+        date: DateFormatHelper.formatDateLong(new Date(rdv.creneau.date)),
+        heure: rdv.creneau.heureDebut,
+        prix: rdv.service?.serviceMedical?.prix ?? 0,
+        docteur: `Dr. ${docteur.prenom} ${docteur.nom}`,
+      },
+    );
+
+    return rdv;
   }
 }

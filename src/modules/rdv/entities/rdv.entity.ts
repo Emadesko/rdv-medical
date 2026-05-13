@@ -12,6 +12,9 @@ export class Rdv extends AbstractEntity {
   @JoinColumn()
   patient: Patient;
 
+  @Column({ nullable: true, type: 'text' })
+  notesMedicales: string | null;
+
   @Column({ nullable: true })
   motif: string;
 

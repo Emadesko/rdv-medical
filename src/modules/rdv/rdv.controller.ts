@@ -21,6 +21,9 @@ import { PaginationRequest } from '../../core/common/dto/requests/pagination.req
 import { RolesGuard } from '../../core/modules/auth/guards/roles.guard';
 import { Roles } from '../../core/modules/auth/decorators/roles.decorator';
 import { UserRole } from '../../core/modules/user/enums/user.role';
+import { FilterConsultationsDto } from './dto/filter-consultations.dto';
+import { ConfirmerRdvDto } from './dto/confirmer-rdv.dto';
+import { AnnulerRdvMedecinDto } from './dto/annuler-rdv-medecin.dto';
 
 @Controller('rdvs')
 export class RdvController {
@@ -161,23 +164,51 @@ export class RdvController {
     );
   }
 
-  @Get()
-  findAll() {
-    return this.rdvService.findAll();
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(UserRole.MEDECIN, UserRole.ADMIN)
+  @Get('consultations')
+  async getConsultations(
+    @CurrentUser() user: User,
+    @Query() filters: FilterConsultationsDto,
+  ) {
+    const result = await this.rdvService.getConsultations(user, filters);
+    return new RestResponse(
+      HttpStatus.OK,
+      result.data,
+      'ConsultationDto',
+      result.pagination,
+    );
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.rdvService.findOne(+id);
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(UserRole.MEDECIN, UserRole.ADMIN)
+  @Patch(':id/confirmer')
+  async confirmerConsultation(
+    @Param('id') id: number,
+    @CurrentUser() user: User,
+    @Body() dto: ConfirmerRdvDto,
+  ) {
+    await this.rdvService.confirmerConsultation(+id, user, dto);
+    return new RestResponse(HttpStatus.OK, null, 'RdvDto');
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateRdvDto: UpdateRdvDto) {
-    return this.rdvService.updating(+id, updateRdvDto);
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(UserRole.MEDECIN, UserRole.ADMIN)
+  @Patch(':id/absent')
+  async marquerAbsent(@Param('id') id: number, @CurrentUser() user: User) {
+    await this.rdvService.marquerAbsent(+id, user);
+    return new RestResponse(HttpStatus.OK, null, 'RdvDto');
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.rdvService.remove(+id);
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(UserRole.MEDECIN, UserRole.ADMIN)
+  @Patch(':id/annuler-medecin')
+  async annulerParMedecin(
+    @Param('id') id: number,
+    @CurrentUser() user: User,
+    @Body() dto: AnnulerRdvMedecinDto,
+  ) {
+    await this.rdvService.annulerParMedecin(+id, user, dto);
+    return new RestResponse(HttpStatus.OK, null, 'RdvDto');
   }
 }
