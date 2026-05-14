@@ -63,9 +63,11 @@ export class RdvExpirationCron {
       .leftJoinAndSelect('patient.user', 'user')
       .leftJoinAndSelect('rdv.service', 'ss')
       .leftJoinAndSelect('ss.serviceMedical', 'service')
-      .where('rdv.statut = :statut', { statut: StatutRdv.EN_ATTENTE })
+      .where('rdv.statut IN (:...statuts)', {
+        statuts: [StatutRdv.EN_ATTENTE, StatutRdv.VALIDE],
+      })
       .andWhere('creneau.date = :today', { today })
-      .andWhere('creneau.heureDebut < :heureActuelle', { heureActuelle })
+      .andWhere('creneau.heureDebut <= :heureActuelle', { heureActuelle })
       .getMany();
 
     for (const rdv of rdvsEnAttente) {
