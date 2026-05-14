@@ -4,4 +4,5 @@ export enum StatutCreneau {
   VALIDE = 'Validé',
   RESERVE = 'Reservé(Payé)',
   BLOQUE = 'Bloqué',
+  DEPASSE = 'Dépassé',
 }
